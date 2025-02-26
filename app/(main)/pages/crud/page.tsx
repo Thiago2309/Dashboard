@@ -1,153 +1,138 @@
-/* eslint-disable @next/next/no-img-element */
 'use client';
 import { Button } from 'primereact/button';
 import { Column } from 'primereact/column';
 import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
-import { FileUpload } from 'primereact/fileupload';
-import { InputNumber, InputNumberValueChangeEvent } from 'primereact/inputnumber';
 import { InputText } from 'primereact/inputtext';
-import { InputTextarea } from 'primereact/inputtextarea';
-import { RadioButton, RadioButtonChangeEvent } from 'primereact/radiobutton';
-import { Rating } from 'primereact/rating';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
-import { classNames } from 'primereact/utils';
 import React, { useEffect, useRef, useState } from 'react';
-import { ProductService } from '../../../../demo/service/ProductService';
-import { Demo } from '@/types';
+import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje } from '../../../../Services/BD/viajeService';
 
-/* @todo Used 'as any' for types here. Will fix in next version due to onSelectionChange event type issue. */
 const Crud = () => {
-    let emptyProduct: Demo.Product = {
-        id: '',
-        name: '',
-        image: '',
-        description: '',
-        category: '',
-        price: 0,
-        quantity: 0,
-        rating: 0,
-        inventoryStatus: 'INSTOCK'
+    let emptyViaje: Viaje = {
+        id: null,
+        id_cliente: null,
+        fecha: '',
+        folio_bco: '',
+        folio: '',
+        origen: '',
+        destino: '',
+        id_material: null,
+        id_m3: null,
+        CapHrsViajes: null,
+        created_at: ''
     };
 
-    const [products, setProducts] = useState(null);
-    const [productDialog, setProductDialog] = useState(false);
-    const [deleteProductDialog, setDeleteProductDialog] = useState(false);
-    const [deleteProductsDialog, setDeleteProductsDialog] = useState(false);
-    const [product, setProduct] = useState<Demo.Product>(emptyProduct);
-    const [selectedProducts, setSelectedProducts] = useState(null);
+    const [viajes, setViajes] = useState<Viaje[]>([]);
+    const [viajeDialog, setViajeDialog] = useState(false);
+    const [deleteViajeDialog, setDeleteViajeDialog] = useState(false);
+    const [deleteViajesDialog, setDeleteViajesDialog] = useState(false);
+    const [viaje, setViaje] = useState<Viaje>(emptyViaje);
+    const [selectedViajes, setSelectedViajes] = useState<Viaje[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const [globalFilter, setGlobalFilter] = useState('');
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
 
     useEffect(() => {
-        ProductService.getProducts().then((data) => setProducts(data as any));
+        fetchViajes().then(setViajes);
     }, []);
 
-    const formatCurrency = (value: number) => {
-        return value.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        });
-    };
-
     const openNew = () => {
-        setProduct(emptyProduct);
+        setViaje(emptyViaje);
         setSubmitted(false);
-        setProductDialog(true);
+        setViajeDialog(true);
     };
 
     const hideDialog = () => {
         setSubmitted(false);
-        setProductDialog(false);
+        setViajeDialog(false);
     };
 
-    const hideDeleteProductDialog = () => {
-        setDeleteProductDialog(false);
+    const hideDeleteViajeDialog = () => {
+        setDeleteViajeDialog(false);
     };
 
-    const hideDeleteProductsDialog = () => {
-        setDeleteProductsDialog(false);
+    const hideDeleteViajesDialog = () => {
+        setDeleteViajesDialog(false);
     };
 
-    const saveProduct = () => {
+    const saveViaje = async () => {
         setSubmitted(true);
 
-        if (product.name.trim()) {
-            let _products = [...(products as any)];
-            let _product = { ...product };
-            if (product.id) {
-                const index = findIndexById(product.id);
+        if (
+            viaje.folio_bco.trim() &&
+            viaje.folio.trim() &&
+            viaje.id_cliente !== null &&
+            viaje.id_material !== null &&
+            viaje.id_m3 !== null &&
+            viaje.CapHrsViajes !== null
+        ) {
+            try {
+                if (viaje.id) {
+                    const updatedViaje = await updateViaje(viaje);
+                    setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
+                    toast.current?.show({
+                        severity: 'success',
+                        summary: 'Successful',
+                        detail: 'Viaje Updated',
+                        life: 3000
+                    });
+                } else {
+                    const newViaje = await createViaje(viaje);
+                    setViajes([...viajes, newViaje]);
+                    toast.current?.show({
+                        severity: 'success',
+                        summary: 'Successful',
+                        detail: 'Viaje Created',
+                        life: 3000
+                    });
+                }
 
-                _products[index] = _product;
+                setViajeDialog(false);
+                setViaje(emptyViaje);
+            } catch (error) {
                 toast.current?.show({
-                    severity: 'success',
-                    summary: 'Successful',
-                    detail: 'Product Updated',
-                    life: 3000
-                });
-            } else {
-                _product.id = createId();
-                _product.image = 'product-placeholder.svg';
-                _products.push(_product);
-                toast.current?.show({
-                    severity: 'success',
-                    summary: 'Successful',
-                    detail: 'Product Created',
+                    severity: 'error',
+                    summary: 'Error',
+                    detail: 'Error saving viaje',
                     life: 3000
                 });
             }
-
-            setProducts(_products as any);
-            setProductDialog(false);
-            setProduct(emptyProduct);
         }
     };
 
-    const editProduct = (product: Demo.Product) => {
-        setProduct({ ...product });
-        setProductDialog(true);
+    const editViaje = (viaje: Viaje) => {
+        setViaje({ ...viaje });
+        setViajeDialog(true);
     };
 
-    const confirmDeleteProduct = (product: Demo.Product) => {
-        setProduct(product);
-        setDeleteProductDialog(true);
+    const confirmDeleteViaje = (viaje: Viaje) => {
+        setViaje(viaje);
+        setDeleteViajeDialog(true);
     };
 
-    const deleteProduct = () => {
-        let _products = (products as any)?.filter((val: any) => val.id !== product.id);
-        setProducts(_products);
-        setDeleteProductDialog(false);
-        setProduct(emptyProduct);
-        toast.current?.show({
-            severity: 'success',
-            summary: 'Successful',
-            detail: 'Product Deleted',
-            life: 3000
-        });
-    };
-
-    const findIndexById = (id: string) => {
-        let index = -1;
-        for (let i = 0; i < (products as any)?.length; i++) {
-            if ((products as any)[i].id === id) {
-                index = i;
-                break;
-            }
+    const deleteViajeConfirmado = async () => {
+        try {
+            await deleteViaje(viaje.id!);
+            setViajes(viajes.filter(v => v.id !== viaje.id));
+            setDeleteViajeDialog(false);
+            setViaje(emptyViaje);
+            toast.current?.show({
+                severity: 'success',
+                summary: 'Successful',
+                detail: 'Viaje Deleted',
+                life: 3000
+            });
+        } catch (error) {
+            toast.current?.show({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Error deleting viaje',
+                life: 3000
+            });
         }
-
-        return index;
-    };
-
-    const createId = () => {
-        let id = '';
-        let chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
-        for (let i = 0; i < 5; i++) {
-            id += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
-        return id;
     };
 
     const exportCSV = () => {
@@ -155,42 +140,29 @@ const Crud = () => {
     };
 
     const confirmDeleteSelected = () => {
-        setDeleteProductsDialog(true);
+        setDeleteViajesDialog(true);
     };
 
-    const deleteSelectedProducts = () => {
-        let _products = (products as any)?.filter((val: any) => !(selectedProducts as any)?.includes(val));
-        setProducts(_products);
-        setDeleteProductsDialog(false);
-        setSelectedProducts(null);
-        toast.current?.show({
-            severity: 'success',
-            summary: 'Successful',
-            detail: 'Products Deleted',
-            life: 3000
-        });
-    };
-
-    const onCategoryChange = (e: RadioButtonChangeEvent) => {
-        let _product = { ...product };
-        _product['category'] = e.value;
-        setProduct(_product);
-    };
-
-    const onInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>, name: string) => {
-        const val = (e.target && e.target.value) || '';
-        let _product = { ...product };
-        _product[`${name}`] = val;
-
-        setProduct(_product);
-    };
-
-    const onInputNumberChange = (e: InputNumberValueChangeEvent, name: string) => {
-        const val = e.value || 0;
-        let _product = { ...product };
-        _product[`${name}`] = val;
-
-        setProduct(_product);
+    const deleteSelectedViajes = async () => {
+        try {
+            await Promise.all(selectedViajes.map(v => deleteViaje(v.id!)));
+            setViajes(viajes.filter(v => !selectedViajes.includes(v)));
+            setDeleteViajesDialog(false);
+            setSelectedViajes([]);
+            toast.current?.show({
+                severity: 'success',
+                summary: 'Successful',
+                detail: 'Viajes Deleted',
+                life: 3000
+            });
+        } catch (error) {
+            toast.current?.show({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'Error deleting viajes',
+                life: 3000
+            });
+        }
     };
 
     const leftToolbarTemplate = () => {
@@ -198,7 +170,7 @@ const Crud = () => {
             <React.Fragment>
                 <div className="my-2">
                     <Button label="New" icon="pi pi-plus" severity="success" className=" mr-2" onClick={openNew} />
-                    <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedProducts || !(selectedProducts as any).length} />
+                    <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedViajes || !selectedViajes.length} />
                 </div>
             </React.Fragment>
         );
@@ -207,87 +179,77 @@ const Crud = () => {
     const rightToolbarTemplate = () => {
         return (
             <React.Fragment>
-                <FileUpload mode="basic" accept="image/*" maxFileSize={1000000} chooseLabel="Import" className="mr-2 inline-block" />
                 <Button label="Export" icon="pi pi-upload" severity="help" onClick={exportCSV} />
             </React.Fragment>
         );
     };
 
-    const codeBodyTemplate = (rowData: Demo.Product) => {
+    const folioBcoBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Code</span>
-                {rowData.code}
+                <span className="p-column-title">Folio Banco</span>
+                {rowData.folio_bco}
             </>
         );
     };
 
-    const nameBodyTemplate = (rowData: Demo.Product) => {
+    const folioBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Name</span>
-                {rowData.name}
+                <span className="p-column-title">Folio</span>
+                {rowData.folio}
             </>
         );
     };
 
-    const imageBodyTemplate = (rowData: Demo.Product) => {
+    const idClienteBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Image</span>
-                <img src={`/demo/images/product/${rowData.image}`} alt={rowData.image} className="shadow-2" width="100" />
+                <span className="p-column-title">ID Cliente</span>
+                {rowData.id_cliente}
             </>
         );
     };
 
-    const priceBodyTemplate = (rowData: Demo.Product) => {
+    const idMaterialBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Price</span>
-                {formatCurrency(rowData.price as number)}
+                <span className="p-column-title">ID Material</span>
+                {rowData.id_material}
             </>
         );
     };
 
-    const categoryBodyTemplate = (rowData: Demo.Product) => {
+    const idM3BodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Category</span>
-                {rowData.category}
+                <span className="p-column-title">ID M3</span>
+                {rowData.id_m3}
             </>
         );
     };
 
-    const ratingBodyTemplate = (rowData: Demo.Product) => {
+    const capHrsViajesBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Reviews</span>
-                <Rating value={rowData.rating} readOnly cancel={false} />
+                <span className="p-column-title">Cap. Hrs Viajes</span>
+                {rowData.CapHrsViajes}
             </>
         );
     };
 
-    const statusBodyTemplate = (rowData: Demo.Product) => {
+    const actionBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">Status</span>
-                <span className={`product-badge status-${rowData.inventoryStatus?.toLowerCase()}`}>{rowData.inventoryStatus}</span>
-            </>
-        );
-    };
-
-    const actionBodyTemplate = (rowData: Demo.Product) => {
-        return (
-            <>
-                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editProduct(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteProduct(rowData)} />
+                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editViaje(rowData)} />
+                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteViaje(rowData)} />
             </>
         );
     };
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0">Manage Products</h5>
+            <h5 className="m-0">Manage Viajes</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -295,22 +257,22 @@ const Crud = () => {
         </div>
     );
 
-    const productDialogFooter = (
+    const viajeDialogFooter = (
         <>
             <Button label="Cancel" icon="pi pi-times" text onClick={hideDialog} />
-            <Button label="Save" icon="pi pi-check" text onClick={saveProduct} />
+            <Button label="Save" icon="pi pi-check" text onClick={saveViaje} />
         </>
     );
-    const deleteProductDialogFooter = (
+    const deleteViajeDialogFooter = (
         <>
-            <Button label="No" icon="pi pi-times" text onClick={hideDeleteProductDialog} />
-            <Button label="Yes" icon="pi pi-check" text onClick={deleteProduct} />
+            <Button label="No" icon="pi pi-times" text onClick={hideDeleteViajeDialog} />
+            <Button label="Yes" icon="pi pi-check" text onClick={deleteViajeConfirmado} />
         </>
     );
-    const deleteProductsDialogFooter = (
+    const deleteViajesDialogFooter = (
         <>
-            <Button label="No" icon="pi pi-times" text onClick={hideDeleteProductsDialog} />
-            <Button label="Yes" icon="pi pi-check" text onClick={deleteSelectedProducts} />
+            <Button label="No" icon="pi pi-times" text onClick={hideDeleteViajesDialog} />
+            <Button label="Yes" icon="pi pi-check" text onClick={deleteSelectedViajes} />
         </>
     );
 
@@ -323,102 +285,116 @@ const Crud = () => {
 
                     <DataTable
                         ref={dt}
-                        value={products}
-                        selection={selectedProducts}
-                        onSelectionChange={(e) => setSelectedProducts(e.value as any)}
+                        value={viajes}
+                        selection={selectedViajes}
+                        onSelectionChange={(e) => setSelectedViajes(e.value)}
                         dataKey="id"
                         paginator
                         rows={10}
                         rowsPerPageOptions={[5, 10, 25]}
                         className="datatable-responsive"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
-                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} products"
+                        currentPageReportTemplate="Showing {first} to {last} of {totalRecords} viajes"
                         globalFilter={globalFilter}
-                        emptyMessage="No products found."
+                        emptyMessage="No viajes found."
                         header={header}
                         responsiveLayout="scroll"
                     >
                         <Column selectionMode="multiple" headerStyle={{ width: '4rem' }}></Column>
-                        <Column field="code" header="Code" sortable body={codeBodyTemplate} headerStyle={{ minWidth: '15rem' }}></Column>
-                        <Column field="name" header="Name" sortable body={nameBodyTemplate} headerStyle={{ minWidth: '15rem' }}></Column>
-                        <Column header="Image" body={imageBodyTemplate}></Column>
-                        <Column field="price" header="Price" body={priceBodyTemplate} sortable></Column>
-                        <Column field="category" header="Category" sortable body={categoryBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
-                        <Column field="rating" header="Reviews" body={ratingBodyTemplate} sortable></Column>
-                        <Column field="inventoryStatus" header="Status" body={statusBodyTemplate} sortable headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column field="folio_bco" header="Folio Banco" sortable body={folioBcoBodyTemplate}></Column>
+                        <Column field="folio" header="Folio" sortable body={folioBodyTemplate}></Column>
+                        <Column field="id_cliente" header="ID Cliente" sortable body={idClienteBodyTemplate}></Column>
+                        <Column field="id_material" header="ID Material" sortable body={idMaterialBodyTemplate}></Column>
+                        <Column field="id_m3" header="ID M3" sortable body={idM3BodyTemplate}></Column>
+                        <Column field="CapHrsViajes" header="Cap. Hrs Viajes" sortable body={capHrsViajesBodyTemplate}></Column>
                         <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={productDialog} style={{ width: '450px' }} header="Product Details" modal className="p-fluid" footer={productDialogFooter} onHide={hideDialog}>
-                        {product.image && <img src={`/demo/images/product/${product.image}`} alt={product.image} width="150" className="mt-0 mx-auto mb-5 block shadow-2" />}
+                    <Dialog visible={viajeDialog} style={{ width: '450px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
                         <div className="field">
-                            <label htmlFor="name">Name</label>
+                            <label htmlFor="folio_bco">Folio Banco</label>
                             <InputText
-                                id="name"
-                                value={product.name}
-                                onChange={(e) => onInputChange(e, 'name')}
+                                id="folio_bco"
+                                value={viaje.folio_bco}
+                                onChange={(e) => setViaje({ ...viaje, folio_bco: e.target.value })}
                                 required
                                 autoFocus
-                                className={classNames({
-                                    'p-invalid': submitted && !product.name
-                                })}
+                                className={submitted && !viaje.folio_bco ? 'p-invalid' : ''}
                             />
-                            {submitted && !product.name && <small className="p-invalid">Name is required.</small>}
+                            {submitted && !viaje.folio_bco && <small className="p-invalid">Folio Banco is required.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="description">Description</label>
-                            <InputTextarea id="description" value={product.description} onChange={(e) => onInputChange(e, 'description')} required rows={3} cols={20} />
+                            <label htmlFor="folio">Folio</label>
+                            <InputText
+                                id="folio"
+                                value={viaje.folio}
+                                onChange={(e) => setViaje({ ...viaje, folio: e.target.value })}
+                                required
+                                className={submitted && !viaje.folio ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.folio && <small className="p-invalid">Folio is required.</small>}
                         </div>
-
                         <div className="field">
-                            <label className="mb-3">Category</label>
-                            <div className="formgrid grid">
-                                <div className="field-radiobutton col-6">
-                                    <RadioButton inputId="category1" name="category" value="Accessories" onChange={onCategoryChange} checked={product.category === 'Accessories'} />
-                                    <label htmlFor="category1">Accessories</label>
-                                </div>
-                                <div className="field-radiobutton col-6">
-                                    <RadioButton inputId="category2" name="category" value="Clothing" onChange={onCategoryChange} checked={product.category === 'Clothing'} />
-                                    <label htmlFor="category2">Clothing</label>
-                                </div>
-                                <div className="field-radiobutton col-6">
-                                    <RadioButton inputId="category3" name="category" value="Electronics" onChange={onCategoryChange} checked={product.category === 'Electronics'} />
-                                    <label htmlFor="category3">Electronics</label>
-                                </div>
-                                <div className="field-radiobutton col-6">
-                                    <RadioButton inputId="category4" name="category" value="Fitness" onChange={onCategoryChange} checked={product.category === 'Fitness'} />
-                                    <label htmlFor="category4">Fitness</label>
-                                </div>
-                            </div>
+                            <label htmlFor="id_cliente">ID Cliente</label>
+                            <InputText
+                                id="id_cliente"
+                                value={viaje.id_cliente?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, id_cliente: parseInt(e.target.value) || null })}
+                                required
+                                className={submitted && !viaje.id_cliente ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_cliente && <small className="p-invalid">ID Cliente is required.</small>}
                         </div>
-
-                        <div className="formgrid grid">
-                            <div className="field col">
-                                <label htmlFor="price">Price</label>
-                                <InputNumber id="price" value={product.price} onValueChange={(e) => onInputNumberChange(e, 'price')} mode="currency" currency="USD" locale="en-US" />
-                            </div>
-                            <div className="field col">
-                                <label htmlFor="quantity">Quantity</label>
-                                <InputNumber id="quantity" value={product.quantity} onValueChange={(e) => onInputNumberChange(e, 'quantity')} />
-                            </div>
+                        <div className="field">
+                            <label htmlFor="id_material">ID Material</label>
+                            <InputText
+                                id="id_material"
+                                value={viaje.id_material?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, id_material: parseInt(e.target.value) || null })}
+                                required
+                                className={submitted && !viaje.id_material ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_material && <small className="p-invalid">ID Material is required.</small>}
+                        </div>
+                        <div className="field">
+                            <label htmlFor="id_m3">ID M3</label>
+                            <InputText
+                                id="id_m3"
+                                value={viaje.id_m3?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, id_m3: parseInt(e.target.value) || null })}
+                                required
+                                className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_m3 && <small className="p-invalid">ID M3 is required.</small>}
+                        </div>
+                        <div className="field">
+                            <label htmlFor="CapHrsViajes">Cap. Hrs Viajes</label>
+                            <InputText
+                                id="CapHrsViajes"
+                                value={viaje.CapHrsViajes?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, CapHrsViajes: parseFloat(e.target.value) || null })}
+                                required
+                                className={submitted && !viaje.CapHrsViajes ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.CapHrsViajes && <small className="p-invalid">Cap. Hrs Viajes is required.</small>}
                         </div>
                     </Dialog>
 
-                    <Dialog visible={deleteProductDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteProductDialogFooter} onHide={hideDeleteProductDialog}>
+                    <Dialog visible={deleteViajeDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteViajeDialogFooter} onHide={hideDeleteViajeDialog}>
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                            {product && (
+                            {viaje && (
                                 <span>
-                                    Are you sure you want to delete <b>{product.name}</b>?
+                                    Are you sure you want to delete <b>{viaje.folio_bco}</b>?
                                 </span>
                             )}
                         </div>
                     </Dialog>
 
-                    <Dialog visible={deleteProductsDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteProductsDialogFooter} onHide={hideDeleteProductsDialog}>
+                    <Dialog visible={deleteViajesDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteViajesDialogFooter} onHide={hideDeleteViajesDialog}>
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                            {product && <span>Are you sure you want to delete the selected products?</span>}
+                            {viaje && <span>Are you sure you want to delete the selected viajes?</span>}
                         </div>
                     </Dialog>
                 </div>

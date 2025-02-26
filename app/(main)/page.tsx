@@ -392,6 +392,11 @@ const Dashboard = () => {
                     </div>
                 </div>
             </div> */}
+
+            {/* Muestra la tabla crud */}
+            <div className="col-12">
+                <Crud/>
+            </div>
         </div>
     );
 };
