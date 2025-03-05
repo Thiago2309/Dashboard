@@ -26,42 +26,39 @@ const TableModule = () => {
     };
 
     return (
-        <div style={styles.container}>
-            <h1 style={styles.title}>Tables</h1>
-            <div style={styles.whiteContainer}>
-                <div style={styles.menu}>
-                    <div
-                        style={activeModule === 'Viajes' ? styles.activeMenuItem : styles.menuItem}
-                        onClick={() => setActiveModule('Viajes')}
-                    >
-                        Viajes
+        <div className="grid">
+            <div className='col-12'>
+            {/* <h1 style={styles.title}>Tables</h1> */}
+                <div className="card">
+                    <div style={styles.menu}>
+                        <div
+                            style={activeModule === 'Viajes' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Viajes')}
+                        >
+                            Viajes
+                        </div>
+                        <div
+                            style={activeModule === 'Gastos' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Gastos')}
+                        >
+                            Gastos
+                        </div>
+                        <div
+                            style={activeModule === 'Combustible' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Combustible')}
+                        >
+                            Combustible
+                        </div>
+                        <div
+                            style={activeModule === 'Caja Negra' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Caja Negra')}
+                        >
+                            Caja Negra
+                        </div>
                     </div>
-                    <div
-                        style={activeModule === 'Gastos' ? styles.activeMenuItem : styles.menuItem}
-                        onClick={() => setActiveModule('Gastos')}
-                    >
-                        Gastos
+                    <div style={styles.tableContainer}>
+                        {renderModule()}
                     </div>
-                    <div
-                        style={activeModule === 'Combustible' ? styles.activeMenuItem : styles.menuItem}
-                        onClick={() => setActiveModule('Combustible')}
-                    >
-                        Combustible
-                    </div>
-                    <div
-                        style={activeModule === 'Caja Negra' ? styles.activeMenuItem : styles.menuItem}
-                        onClick={() => setActiveModule('Caja Negra')}
-                    >
-                        Caja Negra
-                    </div>
-                </div>
-                <div style={styles.actions}>
-                    <Button label="+ New" style={styles.button} />
-                    <Button label="+ Import" style={styles.button} />
-                    <Button label="+ Export" style={styles.button} />
-                </div>
-                <div style={styles.tableContainer}>
-                    {renderModule()}
                 </div>
             </div>
         </div>
@@ -70,7 +67,6 @@ const TableModule = () => {
 
 const styles = {
     container: {
-        padding: '20px',
         backgroundColor: '#f9f9f9',
     },
     title: {

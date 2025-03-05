@@ -1,9 +1,12 @@
 import React from 'react';
+import GastosCrud from '../../pages/crud/GastosCrud';
 
 const GastosModule = () => {
 
     return (
-            <div><h1>Gastos</h1></div>
+        <div className="col-12">
+            <GastosCrud/>
+        </div>
     );
 };
 

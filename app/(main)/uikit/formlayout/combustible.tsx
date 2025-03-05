@@ -1,9 +1,12 @@
 import React from 'react';
+import CombustibleCrud from '../../pages/crud/CombustibleCrud';
 
 const CombustibleModule = () => {
 
     return (
-        <div><h1>Combustible</h1></div>
+        <div className="col-12">
+            <CombustibleCrud/>
+        </div>
     );
 };
 
