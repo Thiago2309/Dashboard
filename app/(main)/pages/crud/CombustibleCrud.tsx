@@ -41,20 +41,35 @@ const CombustibleCrud = () => {
     };
 
     // CALCULO DE LITROS DE COMBUSTIBLE TOTAL AL MES
-    const calcularLitrosUltimoMes = (combustibles: Combustible[]): number => {
+    const calcularLitrosUltimoMes = (combustibles: Combustible[]): { litros: number; mes: string; año: number } => {
         const hoy = new Date();
         const primerDiaMes = new Date(hoy.getFullYear(), hoy.getMonth(), 1); // Primer día del mes actual
         const ultimoDiaMes = new Date(hoy.getFullYear(), hoy.getMonth() + 1, 0); // Último día del mes actual
     
-        const litrosUltimoMes = combustibles
-            .filter((c) => {
-                const fechaCombustible = new Date(c.fecha);
-                return fechaCombustible >= primerDiaMes && fechaCombustible <= ultimoDiaMes;
-            })
-            .reduce((total, c) => total + (c.litros || 0), 0);
-        console.log("Este es de la constante"+litrosUltimoMes);
+        // Obtener el nombre del mes y el año
+        const nombreMes = primerDiaMes.toLocaleString('es', { month: 'long' }); // Nombre del mes en español
+        const año = primerDiaMes.getFullYear(); // Año
     
-        return litrosUltimoMes;
+        // Filtrar registros del último mes
+        const registrosFiltrados = combustibles.filter((c) => {
+            const fechaCombustible = new Date(c.fecha).toISOString().split('T')[0]; // Solo la fecha (YYYY-MM-DD)
+            const primerDiaMesISO = primerDiaMes.toISOString().split('T')[0];
+            const ultimoDiaMesISO = ultimoDiaMes.toISOString().split('T')[0];
+    
+            return fechaCombustible >= primerDiaMesISO && fechaCombustible <= ultimoDiaMesISO;
+        });
+    
+        // Sumar los litros
+        const litrosUltimoMes = registrosFiltrados.reduce((total, c) => {
+            const litros = c.litros || 0; // Si litros es null, usa 0
+            return total + litros;
+        }, 0);
+    
+        return {
+            litros: litrosUltimoMes,
+            mes: nombreMes,
+            año: año,
+        };
     };
 
     // QUE OPERADOR GASTO MAS LITRO EN EL ULTIMO MES
@@ -90,10 +105,8 @@ const CombustibleCrud = () => {
     
         return operadorConMasLitros ? { operador: operadorConMasLitros, litros: maxLitros } : null;
     };
-    const litrosUltimoMes = calcularLitrosUltimoMes(combustibles);
+    const { litros, mes, año } = calcularLitrosUltimoMes(combustibles);
     const operadorConMasLitros = encontrarOperadorConMasLitros(combustibles);
-    console.log(operadorConMasLitros);
-    console.log(litrosUltimoMes);
 
     // State for dropdown options
     const [viajes, setViajes] = useState<{ id: number; folio: string }[]>([]);
@@ -235,7 +248,7 @@ const CombustibleCrud = () => {
         return (
             <React.Fragment>
                 <div className="my-2">
-                    <Button label="Nuevo" icon="pi pi-plus" severity="success" className="mr-2" onClick={openNew} />
+                    <Button label="Nuevo" icon="pi pi-plus" severity="info" className="mr-2" onClick={openNew} />
                     <Button label="Eliminar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedCombustibles || !selectedCombustibles.length} />
                 </div>
             </React.Fragment>
@@ -307,8 +320,8 @@ const CombustibleCrud = () => {
     const actionBodyTemplate = (rowData: Combustible) => {
         return (
             <>
-                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editCombustible(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteCombustible(rowData)} />
+                <Button icon="pi pi-pencil" rounded severity="info" className="mr-2" onClick={() => editCombustible(rowData)} />
+                <Button icon="pi pi-trash" rounded severity="danger" onClick={() => confirmDeleteCombustible(rowData)} />
             </>
         );
     };
@@ -379,11 +392,11 @@ const CombustibleCrud = () => {
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
                         <div>
-                            <span className="block text-500 font-medium mb-3">Litros gastados este mes</span>
-                            <div className="text-900 font-medium text-xl">{litrosUltimoMes} L</div>
+                            <span className="block text-500 font-medium mb-3">Litros gastados en {mes} de {año}</span>
+                            <div className="text-900 font-medium text-xl">{litros} L</div>
                         </div>
                         <div className="flex align-items-center justify-content-center bg-blue-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-gas-pump text-blue-500 text-xl" />
+                            <i className="pi pi-truck text-blue-500 text-xl" />
                         </div>
                     </div>
                     <span className="text-500">Total de litros consumidos este mes</span>
