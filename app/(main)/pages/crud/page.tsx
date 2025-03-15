@@ -13,21 +13,14 @@ import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchCliente
 
 const Crud = () => {
     let emptyViaje: Viaje = {
-        id: null,
         id_cliente: null,
-        cliente_nombre: '',
         fecha: '',
         folio_bco: '',
         folio: '',
-        origen: '',
-        destino: '',
         id_precio_origen_destino: null,
         id_material: null,
-        material_nombre: '',
         id_m3: null,
-        m3_nombre: '',
-        CapHrsViajes: null,
-        created_at: ''
+        caphrsviajes: null
     };
 
     const [viajes, setViajes] = useState<Viaje[]>([]);
@@ -47,6 +40,20 @@ const Crud = () => {
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string }[]>([]);
 
+    // Función para calcular el total de horas de viaje
+    const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
+        return viajes.reduce((total, item) => {
+            const horas = item.caphrsviajes || 0; // Si horas_viaje es null, usa 0
+            return total + horas;
+        }, 0);
+    };
+
+    // Función para calcular el total de viajes
+    const calcularTotalViajes = (viajes: Viaje[]): number => {
+        return viajes.length;
+    };
+
+
     useEffect(() => {
         fetchViajes().then(setViajes);
         fetchClientes().then(setClientes);
@@ -54,6 +61,12 @@ const Crud = () => {
         fetchMateriales().then(setMateriales);
         fetchM3().then(setM3Options);
     }, []);
+
+    useEffect(() => {
+        const totalHoras = calcularTotalHorasViajes(viajes);
+        const totalViajes = calcularTotalViajes(viajes);
+        // Guardar los valores en el estado o mostrarlos directamente
+    }, [viajes]);
 
     const openNew = () => {
         setViaje(emptyViaje);
@@ -76,7 +89,7 @@ const Crud = () => {
 
     const saveViaje = async () => {
         setSubmitted(true);
-
+    
         if (
             viaje.folio_bco.trim() &&
             viaje.folio.trim() &&
@@ -84,16 +97,25 @@ const Crud = () => {
             viaje.id_material !== null &&
             viaje.id_m3 !== null &&
             viaje.id_precio_origen_destino !== null &&
-            viaje.CapHrsViajes !== null &&
+            viaje.caphrsviajes !== null &&
             viaje.fecha
         ) {
             try {
+                const viajeLimpio = {
+                    ...viaje,
+                    cliente_nombre: undefined, // Borra estos datos si existen
+                    material_nombre: undefined,
+                    m3_nombre: undefined,
+                    origen: undefined,
+                    destino: undefined,
+                };
+    
                 if (viaje.id) {
-                    const updatedViaje = await updateViaje(viaje);
+                    const updatedViaje = await updateViaje(viajeLimpio);
                     setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
                     toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
                 } else {
-                    const newViaje = await createViaje(viaje);
+                    const newViaje = await createViaje(viajeLimpio);
                     setViajes([...viajes, newViaje]);
                     toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
                 }
@@ -104,6 +126,7 @@ const Crud = () => {
             }
         }
     };
+    
 
     const editViaje = (viaje: Viaje) => {
         setViaje({ ...viaje });
@@ -151,8 +174,8 @@ const Crud = () => {
         return (
             <React.Fragment>
                 <div className="my-2">
-                    <Button label="New" icon="pi pi-plus" severity="success" className="mr-2" onClick={openNew} />
-                    <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedViajes || !selectedViajes.length} />
+                    <Button label="Nuevo" icon="pi pi-plus" severity="info" className="mr-2" onClick={openNew} />
+                    <Button label="Eliminar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedViajes || !selectedViajes.length} />
                 </div>
             </React.Fragment>
         );
@@ -247,11 +270,11 @@ const Crud = () => {
         );
     };
 
-    const capHrsViajesBodyTemplate = (rowData: Viaje) => {
+    const caphrsviajesBodyTemplate = (rowData: Viaje) => {
         return (
             <>
                 <span className="p-column-title">Cap. Hrs Viajes</span>
-                {rowData.CapHrsViajes}
+                {rowData.caphrsviajes}
             </>
         );
     };
@@ -259,15 +282,15 @@ const Crud = () => {
     const actionBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editViaje(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteViaje(rowData)} />
+                <Button icon="pi pi-pencil" rounded severity="info" className="mr-2" onClick={() => editViaje(rowData)} />
+                <Button icon="pi pi-trash" rounded severity="danger" onClick={() => confirmDeleteViaje(rowData)} />
             </>
         );
     };
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0"></h5>
+            <h5 className="m-0">Gestión de Viajes</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -296,34 +319,35 @@ const Crud = () => {
 
     return (
         <div className="grid crud-demo">
+            {/* Mostrar el total de horas de viaje */}
             <div className="col-12 lg:col-6 xl:col-3">
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
                         <div>
                             <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
-                            <div className="text-900 font-medium text-xl">$152</div>
+                            <div className="text-900 font-medium text-xl">{calcularTotalHorasViajes(viajes)} Pesos</div>
                         </div>
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-dollar text-black-500 text-xl" />
+                            <i className="pi pi-clock text-black-500 text-xl" />
                         </div>
                     </div>
-                    <span className="text-green-500 font-medium">24 new </span>
-                    <span className="text-500">since last visit</span>
+                    <span className="text-500">Total de horas de viaje</span>
                 </div>
             </div>
+
+            {/* Mostrar el total de viajes */}
             <div className="col-12 lg:col-6 xl:col-3">
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
                         <div>
                             <span className="block text-500 font-medium mb-3">Total de Viajes</span>
-                            <div className="text-900 font-medium text-xl">$152</div>
+                            <div className="text-900 font-medium text-xl">{calcularTotalViajes(viajes)}</div>
                         </div>
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-dollar text-black-500 text-xl" />
+                            <i className="pi pi-car text-black-500 text-xl" />
                         </div>
                     </div>
-                    <span className="text-green-500 font-medium">24 new </span>
-                    <span className="text-500">since last visit</span>
+                    <span className="text-500">Total de viajes realizados</span>
                 </div>
             </div>
             <div className="col-12">
@@ -358,11 +382,11 @@ const Crud = () => {
                         <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
                         <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
                         <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
-                        <Column field="CapHrsViajes" header="Cap. Hrs Viajes" sortable body={capHrsViajesBodyTemplate}></Column>
+                        <Column field="caphrsviajes" header="Cap. Hrs Viajes" sortable body={caphrsviajesBodyTemplate}></Column>
                         <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={viajeDialog} style={{ width: '450px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
                         <div className="field">
                             <label htmlFor="fecha">Fecha</label>
                             <Calendar
@@ -452,15 +476,15 @@ const Crud = () => {
                             {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="CapHrsViajes">Cap. Hrs Viajes</label>
+                            <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
                             <InputText
-                                id="CapHrsViajes"
-                                value={viaje.CapHrsViajes?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, CapHrsViajes: parseFloat(e.target.value) || null })}
+                                id="caphrsviajes"
+                                value={viaje.caphrsviajes?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, caphrsviajes: parseFloat(e.target.value) || null })}
                                 required
-                                className={submitted && !viaje.CapHrsViajes ? 'p-invalid' : ''}
+                                className={submitted && !viaje.caphrsviajes ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.CapHrsViajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
+                            {submitted && !viaje.caphrsviajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
                         </div>
                     </Dialog>
 

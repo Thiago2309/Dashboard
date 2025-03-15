@@ -1,13 +1,12 @@
 import { supabase } from '../superbase.service';
 
 export interface Gasto {
-    id: number | null;
+    id?: number;
     id_viaje: number | null;
     fecha: string;
     id_proveedor: number | null;
     refaccion: string;
     importe: number | null;
-    created_at: string;
     viaje_folio?: string;
     proveedor_nombre?: string;
 }
@@ -20,7 +19,6 @@ const transformGastoData = (data: any): Gasto => ({
     id_proveedor: data.id_proveedor,
     refaccion: data.refaccion,
     importe: data.importe,
-    created_at: data.created_at,
     viaje_folio: data.viajes?.folio || '',
     proveedor_nombre: data.proveedores?.nombre || ''
 });

@@ -6,6 +6,7 @@ import ViajesModule from './viajes';
 import GastosModule from './gastos';
 import CombustibleModule from './combustible';
 import CajaNegraModule from './cajanegra';
+import OrigenDestino from './PrecioOriengenDestino';
 
 const TableModule = () => {
     const [activeModule, setActiveModule] = useState('Viajes');
@@ -20,6 +21,8 @@ const TableModule = () => {
                 return <CombustibleModule />;
             case 'Caja Negra':
                 return <CajaNegraModule />;
+            case 'Precio Origen - Destino':
+                return <OrigenDestino />;
             default:
                 return <div>Selecciona un módulo</div>;
         }
@@ -54,6 +57,12 @@ const TableModule = () => {
                             onClick={() => setActiveModule('Caja Negra')}
                         >
                             Caja Negra
+                        </div>
+                        <div
+                            style={activeModule === 'Precio Origen - Destino' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Precio Origen - Destino')}
+                        >
+                            Precio Origen - Destino
                         </div>
                     </div>
                     <div style={styles.tableContainer}>

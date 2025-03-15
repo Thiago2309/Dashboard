@@ -1,21 +1,20 @@
 import { supabase } from '../superbase.service';
 
 export interface Viaje {
-    id: number | null;
+    id?: number;
     id_cliente: number | null;
-    cliente_nombre: string;
+    cliente_nombre?: string;
     fecha: string;
     folio_bco: string;
     folio: string;
-    origen: string;
-    destino: string;
+    origen?: string;
+    destino?: string;
     id_precio_origen_destino: number | null;
     id_material: number | null;
-    material_nombre: string;
+    material_nombre?: string;
     id_m3: number | null;
-    m3_nombre: string;
-    CapHrsViajes: number | null;
-    created_at: string;
+    m3_nombre?: string;
+    caphrsviajes: number | null;
 }
 
 // Helper function to transform Supabase response to Viaje interface
@@ -33,8 +32,7 @@ const transformViajeData = (data: any): Viaje => ({
     material_nombre: data.material?.material_nombre || '',
     id_m3: data.id_m3,
     m3_nombre: data.m3?.m3_nombre || '',
-    CapHrsViajes: data.CapHrsViajes,
-    created_at: data.created_at
+    caphrsviajes: data.caphrsviajes,
 });
 
 export const fetchViajes = async (): Promise<Viaje[]> => {
@@ -50,26 +48,11 @@ export const fetchViajes = async (): Promise<Viaje[]> => {
     return data || [];
 };
 
-export const createViaje = async (viaje: Omit<Viaje, 'id' | 'created_at' | 'cliente_nombre' | 'material_nombre' | 'm3_nombre' | 'origen' | 'destino'>): Promise<Viaje> => {
+export const createViaje = async (viaje: Omit<Viaje, 'id'>): Promise<Viaje> => {
     const { data, error } = await supabase
         .from('viajes')
         .insert([viaje])
-        .select(`
-            id,
-            id_cliente,
-            fecha,
-            folio_bco,
-            folio,
-            id_precio_origen_destino,
-            id_material,
-            id_m3,
-            CapHrsViajes,
-            created_at,
-            clientes:nombre (cliente_nombre),
-            material:nombre (material_nombre),
-            m3:nombre (m3_nombre),
-            precio_origen_destino (origen:NombreOrigen, destino:NombreDestino)
-        `)
+        .select('*')
         .single();
 
     if (error) {
@@ -91,25 +74,10 @@ export const updateViaje = async (viaje: Viaje): Promise<Viaje> => {
             id_precio_origen_destino: viaje.id_precio_origen_destino,
             id_material: viaje.id_material,
             id_m3: viaje.id_m3,
-            CapHrsViajes: viaje.CapHrsViajes
+            caphrsviajes: viaje.caphrsviajes
         })
         .eq('id', viaje.id)
-        .select(`
-            id,
-            id_cliente,
-            fecha,
-            folio_bco,
-            folio,
-            id_precio_origen_destino,
-            id_material,
-            id_m3,
-            CapHrsViajes,
-            created_at,
-            clientes:nombre (cliente_nombre),
-            material:nombre (material_nombre),
-            m3:nombre (m3_nombre),
-            precio_origen_destino (origen:NombreOrigen, destino:NombreDestino)
-        `)
+        .select('*')
         .single();
 
     if (error) {

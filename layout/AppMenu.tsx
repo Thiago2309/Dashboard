@@ -16,6 +16,20 @@ const AppMenu = () => {
             items: [{ label: 'Dashboard', icon: 'pi pi-fw pi-home', to: '/' }]
         },
         {
+            label: 'Gestion',
+            items: [
+                { label: 'Notas', icon: 'pi pi-book', to: '/utilities/icons' },
+                // { label: 'PrimeFlex', icon: 'pi pi-fw pi-desktop', url: 'https://primeflex.org/', target: '_blank' }
+            ]
+        },
+        {
+            label: 'Almacen',
+            items: [
+                { label: 'Free Blocks', icon: 'pi pi-fw pi-eye', to: '/blocks', badge: 'NEW' },
+                { label: 'All Blocks', icon: 'pi pi-fw pi-globe', url: 'https://blocks.primereact.org', target: '_blank' }
+            ]
+        },
+        {
             label: 'Administración',
             items: [
                 { label: 'Tablas', icon: 'pi pi-fw pi-table', to: '/uikit/formlayout' },
@@ -34,13 +48,6 @@ const AppMenu = () => {
                 // { label: 'File', icon: 'pi pi-fw pi-file', to: '/uikit/file' },
                 // { label: 'Chart', icon: 'pi pi-fw pi-chart-bar', to: '/uikit/charts' },
                 // { label: 'Misc', icon: 'pi pi-fw pi-circle', to: '/uikit/misc' }
-            ]
-        },
-        {
-            label: 'Almacen',
-            items: [
-                { label: 'Free Blocks', icon: 'pi pi-fw pi-eye', to: '/blocks', badge: 'NEW' },
-                { label: 'All Blocks', icon: 'pi pi-fw pi-globe', url: 'https://blocks.primereact.org', target: '_blank' }
             ]
         },
         // {

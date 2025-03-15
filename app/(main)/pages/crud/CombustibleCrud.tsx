@@ -142,34 +142,6 @@ const CombustibleCrud = () => {
         setDeleteCombustiblesDialog(false);
     };
 
-    // const saveCombustible = async () => {
-    //     setSubmitted(true);
-
-    //     if (
-    //         combustible.id_viaje !== null &&
-    //         combustible.fecha &&
-    //         combustible.id_operador !== null &&
-    //         combustible.litros !== null &&
-    //         combustible.importe !== null
-    //     ) {
-    //         try {
-    //             if (combustible.id) {
-    //                 const updatedCombustible = await updateCombustible(combustible);
-    //                 setCombustibles(combustibles.map(c => c.id === updatedCombustible.id ? updatedCombustible : c));
-    //                 toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Combustible Updated', life: 3000 });
-    //             } else {
-    //                 const newCombustible = await createCombustible(combustible);
-    //                 setCombustibles([...combustibles, newCombustible]);
-    //                 toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Combustible Created', life: 3000 });
-    //             }
-    //             setCombustibleDialog(false);
-    //             setCombustible(emptyCombustible);
-    //         } catch (error) {
-    //             toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving combustible', life: 3000 });
-    //         }
-    //     }
-    // };
-
     const saveCombustible = async () => {
         setSubmitted(true);
     
@@ -328,7 +300,7 @@ const CombustibleCrud = () => {
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0"></h5>
+            <h5 className="m-0">Gestión de Combustible</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -367,7 +339,7 @@ const CombustibleCrud = () => {
                                 className="text-900 font-medium text-xl"
                                 style={{ color: totalImporteCombustible >= 0 ? 'green' : 'red' }}
                             >
-                                $ {totalImporteCombustible.toLocaleString()}
+                                $ {totalImporteCombustible.toLocaleString()} Pesos
                             </div>
                         </div>
                         <div

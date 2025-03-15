@@ -67,32 +67,6 @@ const CajaChicaCrud = () => {
         setDeleteCajaChicasDialog(false);
     };
 
-    // const saveCajaChica = async () => {
-    //     setSubmitted(true);
-
-    //     if (
-    //         cajaChica.fecha &&
-    //         cajaChica.descripcion.trim() &&
-    //         (cajaChica.ingreso !== null || cajaChica.egreso !== null)
-    //     ) {
-    //         try {
-    //             if (cajaChica.id) {
-    //                 const updatedCajaChica = await updateCajaChica(cajaChica);
-    //                 setCajaChicaList(cajaChicaList.map(c => c.id === updatedCajaChica.id ? updatedCajaChica : c));
-    //                 toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Caja Chica Updated', life: 3000 });
-    //             } else {
-    //                 const newCajaChica = await createCajaChica(cajaChica);
-    //                 setCajaChicaList([...cajaChicaList, newCajaChica]);
-    //                 toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Caja Chica Created', life: 3000 });
-    //             }
-    //             setCajaChicaDialog(false);
-    //             setCajaChica(emptyCajaChica);
-    //         } catch (error) {
-    //             toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving Caja Chica', life: 3000 });
-    //         }
-    //     }
-    // };
-
     const saveCajaChica = async () => {
         setSubmitted(true);
     
@@ -133,18 +107,6 @@ const CajaChicaCrud = () => {
         setDeleteCajaChicaDialog(true);
     };
 
-    // const deleteCajaChicaConfirmado = async () => {
-    //     try {
-    //         await deleteCajaChica(cajaChica.id!);
-    //         setCajaChicaList(cajaChicaList.filter(c => c.id !== cajaChica.id));
-    //         setDeleteCajaChicaDialog(false);
-    //         setCajaChica(emptyCajaChica);
-    //         toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Caja Chica Deleted', life: 3000 });
-    //     } catch (error) {
-    //         toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting Caja Chica', life: 3000 });
-    //     }
-    // };
-
     const deleteCajaChicaConfirmado = async () => {
         try {
             await deleteCajaChica(cajaChica.id!);
@@ -166,18 +128,6 @@ const CajaChicaCrud = () => {
     const confirmDeleteSelected = () => {
         setDeleteCajaChicasDialog(true);
     };
-
-    // const deleteSelectedCajaChicas = async () => {
-    //     try {
-    //         await Promise.all(selectedCajaChicas.map(c => deleteCajaChica(c.id!)));
-    //         setCajaChicaList(cajaChicaList.filter(c => !selectedCajaChicas.includes(c)));
-    //         setDeleteCajaChicasDialog(false);
-    //         setSelectedCajaChicas([]);
-    //         toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Caja Chicas Deleted', life: 3000 });
-    //     } catch (error) {
-    //         toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting Caja Chicas', life: 3000 });
-    //     }
-    // };
 
     const deleteSelectedCajaChicas = async () => {
         try {
@@ -268,7 +218,7 @@ const CajaChicaCrud = () => {
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0"></h5>
+            <h5 className="m-0">Gestión de Caja Chica</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -307,7 +257,7 @@ const CajaChicaCrud = () => {
                                 className="text-900 font-medium text-xl"
                                 style={{ color: saldoTotal >= 0 ? 'green' : 'red' }}
                             >
-                                $ {saldoTotal.toLocaleString()}
+                                $ {saldoTotal.toLocaleString()} Pesos
                             </div>
                         </div>
                         <div

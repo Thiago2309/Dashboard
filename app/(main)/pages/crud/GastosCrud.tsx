@@ -13,13 +13,11 @@ import { fetchGastos, createGasto, updateGasto, deleteGasto, Gasto, fetchViajes,
 
 const GastosCrud = () => {
     let emptyGasto: Gasto = {
-        id: null,
         id_viaje: null,
         fecha: '',
         id_proveedor: null,
         refaccion: '',
         importe: null,
-        created_at: ''
     };
 
     const [gastos, setGastos] = useState<Gasto[]>([]);
@@ -32,16 +30,30 @@ const GastosCrud = () => {
     const [globalFilter, setGlobalFilter] = useState('');
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
+    const [totalGastos, setTotalGastos] = useState<number>(0);
 
     // State for dropdown options
     const [viajes, setViajes] = useState<{ id: number; folio: string }[]>([]);
     const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([]);
+
+    // CALCULO DE GANANCIA TOTAL
+    const calcularTotalGastos = (gastos: Gasto[]): number => {
+        return gastos.reduce((total, item) => {
+            const importe = item.importe || 0; // Si importe es null, usa 0
+            return total + importe;
+        }, 0);
+    };
 
     useEffect(() => {
         fetchGastos().then(setGastos);
         fetchViajes().then(setViajes);
         fetchProveedores().then(setProveedores);
     }, []);
+
+    useEffect(() => {
+        const total = calcularTotalGastos(gastos);
+        setTotalGastos(total);
+    }, [gastos]);
 
     const openNew = () => {
         setGasto(emptyGasto);
@@ -64,7 +76,7 @@ const GastosCrud = () => {
 
     const saveGasto = async () => {
         setSubmitted(true);
-
+    
         if (
             gasto.id_viaje !== null &&
             gasto.fecha &&
@@ -75,11 +87,15 @@ const GastosCrud = () => {
             try {
                 if (gasto.id) {
                     const updatedGasto = await updateGasto(gasto);
-                    setGastos(gastos.map(g => g.id === updatedGasto.id ? updatedGasto : g));
+                    const updatedList = gastos.map(g => g.id === updatedGasto.id ? updatedGasto : g);
+                    setGastos(updatedList);
+                    setTotalGastos(calcularTotalGastos(updatedList)); // Recalcular total
                     toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Gasto Updated', life: 3000 });
                 } else {
                     const newGasto = await createGasto(gasto);
-                    setGastos([...gastos, newGasto]);
+                    const updatedList = [...gastos, newGasto];
+                    setGastos(updatedList);
+                    setTotalGastos(calcularTotalGastos(updatedList)); // Recalcular total
                     toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Gasto Created', life: 3000 });
                 }
                 setGastoDialog(false);
@@ -136,8 +152,8 @@ const GastosCrud = () => {
         return (
             <React.Fragment>
                 <div className="my-2">
-                    <Button label="New" icon="pi pi-plus" severity="success" className="mr-2" onClick={openNew} />
-                    <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedGastos || !selectedGastos.length} />
+                    <Button label="Nuevo" icon="pi pi-plus" severity="info" className="mr-2" onClick={openNew} />
+                    <Button label="Eliminar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedGastos || !selectedGastos.length} />
                 </div>
             </React.Fragment>
         );
@@ -208,15 +224,15 @@ const GastosCrud = () => {
     const actionBodyTemplate = (rowData: Gasto) => {
         return (
             <>
-                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editGasto(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteGasto(rowData)} />
+                <Button icon="pi pi-pencil" rounded severity="info" className="mr-2" onClick={() => editGasto(rowData)} />
+                <Button icon="pi pi-trash" rounded severity="danger" onClick={() => confirmDeleteGasto(rowData)} />
             </>
         );
     };
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0"></h5>
+            <h5 className="m-0">Gestión de Gastos</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -251,14 +267,13 @@ const GastosCrud = () => {
                     <div className="flex justify-content-between mb-3">
                         <div>
                             <span className="block text-500 font-medium mb-3">Total de Gastos</span>
-                            <div className="text-900 font-medium text-xl">152</div>
+                            <div className="text-900 font-medium text-xl">$ {totalGastos.toLocaleString()} Pesos</div>
                         </div>
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
                             <i className="pi pi-dollar text-black-500 text-xl" />
                         </div>
                     </div>
-                    <span className="text-green-500 font-medium">24 new </span>
-                    <span className="text-500">since last visit</span>
+                    <span className="text-500">Total gastado</span>
                 </div>
             </div>
             <div className="col-12">
