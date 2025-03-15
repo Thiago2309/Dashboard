@@ -10,6 +10,8 @@ import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3 } from '../../../../Services/BD/viajeService';
+import { fetchPrecioOrigenDestinoById } from '../../../../Services/BD/precioOrigenDestinoService';
+import { fetchMetrosCubicos } from '@/Services/BD/m3Service';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -43,9 +45,11 @@ const Crud = () => {
 
     // State for dropdown options
     const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
-    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string }[]>([]);
+    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string }[]>([]);
+    const [precioUnitario, setPrecioUnitario] = useState<number | null>(null);
+    const [metrosCubicos, setMetrosCubicos] = useState<number | null>(null);
 
     useEffect(() => {
         fetchViajes().then(setViajes);
@@ -294,6 +298,34 @@ const Crud = () => {
         </>
     );
 
+    const handleOrigenDestinoChange = async (e: any) => {
+        const idPrecioOrigenDestino = e.value;
+        setViaje({ ...viaje, id_precio_origen_destino: idPrecioOrigenDestino });
+    
+        try {
+            const precioData = await fetchPrecioOrigenDestinoById(idPrecioOrigenDestino);
+            setPrecioUnitario(precioData.precio_unidad);
+            console.log('Precio unitario:', precioData.precio_unidad);
+        } catch (error) {
+            console.error('Error fetching precio unitario:', error);
+        }
+    };
+
+    const handleMaterialChange = async (e: any) => {
+        const idM3 = e.value;
+        setViaje({ ...viaje, id_m3: idM3 });
+    
+        try {
+            const m3Data = await fetchMetrosCubicos(idM3);
+            setMetrosCubicos(m3Data.metros_cubicos);
+            console.log('Metros cúbicos:', m3Data.metros_cubicos);
+        } catch (error) {
+            console.error('Error fetching metros cúbicos:', error);
+        }
+    };
+    
+    const precioTotal = precioUnitario && metrosCubicos ? precioUnitario * metrosCubicos : null;
+
     return (
         <div className="grid crud-demo">
             <div className="col-12 lg:col-6 xl:col-3">
@@ -418,7 +450,7 @@ const Crud = () => {
                                 id="id_precio_origen_destino"
                                 value={viaje.id_precio_origen_destino}
                                 options={preciosOrigenDestino.map(p => ({ label: p.label, value: p.id }))}
-                                onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
+                                onChange={handleOrigenDestinoChange}
                                 placeholder="Selecciona un origen-destino"
                                 required
                                 className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
@@ -444,12 +476,26 @@ const Crud = () => {
                                 id="id_m3"
                                 value={viaje.id_m3}
                                 options={m3Options.map(m => ({ label: m.nombre, value: m.id }))}
-                                onChange={(e) => setViaje({ ...viaje, id_m3: e.value })}
+                                onChange={handleMaterialChange}
                                 placeholder="Selecciona un M3"
                                 required
                                 className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
                             />
                             {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
+                        </div>
+                        <div>
+                        <input type="hidden" value={precioUnitario || ''} />
+                        </div>
+
+                        <div className="field">
+                            <label htmlFor="CapHrsViajes">Precio Total</label>
+                            <InputText
+                                id="precioTotal"
+                                type="text"
+                                value={precioTotal?.toString() || ''}
+                                readOnly
+                            />
+                            {submitted && !viaje.CapHrsViajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
                         </div>
                         <div className="field">
                             <label htmlFor="CapHrsViajes">Cap. Hrs Viajes</label>

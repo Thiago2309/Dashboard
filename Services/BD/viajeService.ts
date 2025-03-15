@@ -139,12 +139,13 @@ export const fetchClientes = async (): Promise<{ id: number; nombre: string }[]>
     return data || [];
 };
 
-export const fetchPreciosOrigenDestino = async (): Promise<{ id: number; label: string }[]> => {
-    const { data, error } = await supabase.from('precio_origen_destino').select('id, nombreorigen, nombredestino');
+export const fetchPreciosOrigenDestino = async (): Promise<{ id: number; label: string; precio_unidad:number }[]> => {
+    const { data, error } = await supabase.from('precio_origen_destino').select('id, nombreorigen, nombredestino, precio_unidad');
     if (error) throw error;
     return data?.map(item => ({
         id: item.id,
-        label: `${item.nombreorigen} - ${item.nombredestino}`
+        label: `${item.nombreorigen} - ${item.nombredestino}`,
+        precio_unidad: item.precio_unidad
     })) || [];
 };
 
@@ -154,8 +155,8 @@ export const fetchMateriales = async (): Promise<{ id: number; nombre: string }[
     return data || [];
 };
 
-export const fetchM3 = async (): Promise<{ id: number; nombre: string }[]> => {
-    const { data, error } = await supabase.from('m3').select('id, nombre');
+export const fetchM3 = async (): Promise<{ id: number; nombre: string; metros_cubicos: number}[]> => {
+    const { data, error } = await supabase.from('m3').select('id, nombre, metros_cubicos');
     if (error) throw error;
     return data || [];
 };
