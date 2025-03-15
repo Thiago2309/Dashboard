@@ -6,22 +6,21 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
+import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
+import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje } from '../../../../Services/BD/viajeService';
+import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3 } from '../../../../Services/BD/viajeService';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
-        id: null,
         id_cliente: null,
         fecha: '',
         folio_bco: '',
         folio: '',
-        origen: '',
-        destino: '',
+        id_precio_origen_destino: null,
         id_material: null,
         id_m3: null,
-        CapHrsViajes: null,
-        created_at: ''
+        caphrsviajes: null
     };
 
     const [viajes, setViajes] = useState<Viaje[]>([]);
@@ -35,9 +34,39 @@ const Crud = () => {
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
 
+    // State for dropdown options
+    const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
+    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string }[]>([]);
+    const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
+    const [m3Options, setM3Options] = useState<{ id: number; nombre: string }[]>([]);
+
+    // Función para calcular el total de horas de viaje
+    const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
+        return viajes.reduce((total, item) => {
+            const horas = item.caphrsviajes || 0; // Si horas_viaje es null, usa 0
+            return total + horas;
+        }, 0);
+    };
+
+    // Función para calcular el total de viajes
+    const calcularTotalViajes = (viajes: Viaje[]): number => {
+        return viajes.length;
+    };
+
+
     useEffect(() => {
         fetchViajes().then(setViajes);
+        fetchClientes().then(setClientes);
+        fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
+        fetchMateriales().then(setMateriales);
+        fetchM3().then(setM3Options);
     }, []);
+
+    useEffect(() => {
+        const totalHoras = calcularTotalHorasViajes(viajes);
+        const totalViajes = calcularTotalViajes(viajes);
+        // Guardar los valores en el estado o mostrarlos directamente
+    }, [viajes]);
 
     const openNew = () => {
         setViaje(emptyViaje);
@@ -60,48 +89,44 @@ const Crud = () => {
 
     const saveViaje = async () => {
         setSubmitted(true);
-
+    
         if (
             viaje.folio_bco.trim() &&
             viaje.folio.trim() &&
             viaje.id_cliente !== null &&
             viaje.id_material !== null &&
             viaje.id_m3 !== null &&
-            viaje.CapHrsViajes !== null
+            viaje.id_precio_origen_destino !== null &&
+            viaje.caphrsviajes !== null &&
+            viaje.fecha
         ) {
             try {
+                const viajeLimpio = {
+                    ...viaje,
+                    cliente_nombre: undefined, // Borra estos datos si existen
+                    material_nombre: undefined,
+                    m3_nombre: undefined,
+                    origen: undefined,
+                    destino: undefined,
+                };
+    
                 if (viaje.id) {
-                    const updatedViaje = await updateViaje(viaje);
+                    const updatedViaje = await updateViaje(viajeLimpio);
                     setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
-                    toast.current?.show({
-                        severity: 'success',
-                        summary: 'Successful',
-                        detail: 'Viaje Updated',
-                        life: 3000
-                    });
+                    toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
                 } else {
-                    const newViaje = await createViaje(viaje);
+                    const newViaje = await createViaje(viajeLimpio);
                     setViajes([...viajes, newViaje]);
-                    toast.current?.show({
-                        severity: 'success',
-                        summary: 'Successful',
-                        detail: 'Viaje Created',
-                        life: 3000
-                    });
+                    toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
                 }
-
                 setViajeDialog(false);
                 setViaje(emptyViaje);
             } catch (error) {
-                toast.current?.show({
-                    severity: 'error',
-                    summary: 'Error',
-                    detail: 'Error saving viaje',
-                    life: 3000
-                });
+                toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving viaje', life: 3000 });
             }
         }
     };
+    
 
     const editViaje = (viaje: Viaje) => {
         setViaje({ ...viaje });
@@ -119,19 +144,9 @@ const Crud = () => {
             setViajes(viajes.filter(v => v.id !== viaje.id));
             setDeleteViajeDialog(false);
             setViaje(emptyViaje);
-            toast.current?.show({
-                severity: 'success',
-                summary: 'Successful',
-                detail: 'Viaje Deleted',
-                life: 3000
-            });
+            toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Deleted', life: 3000 });
         } catch (error) {
-            toast.current?.show({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Error deleting viaje',
-                life: 3000
-            });
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting viaje', life: 3000 });
         }
     };
 
@@ -149,19 +164,9 @@ const Crud = () => {
             setViajes(viajes.filter(v => !selectedViajes.includes(v)));
             setDeleteViajesDialog(false);
             setSelectedViajes([]);
-            toast.current?.show({
-                severity: 'success',
-                summary: 'Successful',
-                detail: 'Viajes Deleted',
-                life: 3000
-            });
+            toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viajes Deleted', life: 3000 });
         } catch (error) {
-            toast.current?.show({
-                severity: 'error',
-                summary: 'Error',
-                detail: 'Error deleting viajes',
-                life: 3000
-            });
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting viajes', life: 3000 });
         }
     };
 
@@ -169,8 +174,8 @@ const Crud = () => {
         return (
             <React.Fragment>
                 <div className="my-2">
-                    <Button label="New" icon="pi pi-plus" severity="success" className=" mr-2" onClick={openNew} />
-                    <Button label="Delete" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedViajes || !selectedViajes.length} />
+                    <Button label="Nuevo" icon="pi pi-plus" severity="info" className="mr-2" onClick={openNew} />
+                    <Button label="Eliminar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedViajes || !selectedViajes.length} />
                 </div>
             </React.Fragment>
         );
@@ -181,6 +186,24 @@ const Crud = () => {
             <React.Fragment>
                 <Button label="Export" icon="pi pi-upload" severity="help" onClick={exportCSV} />
             </React.Fragment>
+        );
+    };
+
+    const IdBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Id</span>
+                {rowData.id}
+            </>
+        );
+    };
+
+    const fechaBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Fecha</span>
+                {rowData.fecha}
+            </>
         );
     };
 
@@ -202,38 +225,56 @@ const Crud = () => {
         );
     };
 
-    const idClienteBodyTemplate = (rowData: Viaje) => {
+    const clienteBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">ID Cliente</span>
-                {rowData.id_cliente}
+                <span className="p-column-title">Cliente</span>
+                {rowData.cliente_nombre}
             </>
         );
     };
 
-    const idMaterialBodyTemplate = (rowData: Viaje) => {
+    const origenBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">ID Material</span>
-                {rowData.id_material}
+                <span className="p-column-title">Origen</span>
+                {rowData.origen}
             </>
         );
     };
 
-    const idM3BodyTemplate = (rowData: Viaje) => {
+    const destinoBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <span className="p-column-title">ID M3</span>
-                {rowData.id_m3}
+                <span className="p-column-title">Destino</span>
+                {rowData.destino}
             </>
         );
     };
 
-    const capHrsViajesBodyTemplate = (rowData: Viaje) => {
+    const materialBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Material</span>
+                {rowData.material_nombre}
+            </>
+        );
+    };
+
+    const m3BodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">M3</span>
+                {rowData.m3_nombre}
+            </>
+        );
+    };
+
+    const caphrsviajesBodyTemplate = (rowData: Viaje) => {
         return (
             <>
                 <span className="p-column-title">Cap. Hrs Viajes</span>
-                {rowData.CapHrsViajes}
+                {rowData.caphrsviajes}
             </>
         );
     };
@@ -241,15 +282,15 @@ const Crud = () => {
     const actionBodyTemplate = (rowData: Viaje) => {
         return (
             <>
-                <Button icon="pi pi-pencil" rounded severity="success" className="mr-2" onClick={() => editViaje(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="warning" onClick={() => confirmDeleteViaje(rowData)} />
+                <Button icon="pi pi-pencil" rounded severity="info" className="mr-2" onClick={() => editViaje(rowData)} />
+                <Button icon="pi pi-trash" rounded severity="danger" onClick={() => confirmDeleteViaje(rowData)} />
             </>
         );
     };
 
     const header = (
         <div className="flex flex-column md:flex-row md:justify-content-between md:align-items-center">
-            <h5 className="m-0">Manage Viajes</h5>
+            <h5 className="m-0">Gestión de Viajes</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
                 <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
@@ -278,6 +319,37 @@ const Crud = () => {
 
     return (
         <div className="grid crud-demo">
+            {/* Mostrar el total de horas de viaje */}
+            <div className="col-12 lg:col-6 xl:col-3">
+                <div className="card mb-0">
+                    <div className="flex justify-content-between mb-3">
+                        <div>
+                            <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
+                            <div className="text-900 font-medium text-xl">{calcularTotalHorasViajes(viajes)} Pesos</div>
+                        </div>
+                        <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                            <i className="pi pi-clock text-black-500 text-xl" />
+                        </div>
+                    </div>
+                    <span className="text-500">Total de horas de viaje</span>
+                </div>
+            </div>
+
+            {/* Mostrar el total de viajes */}
+            <div className="col-12 lg:col-6 xl:col-3">
+                <div className="card mb-0">
+                    <div className="flex justify-content-between mb-3">
+                        <div>
+                            <span className="block text-500 font-medium mb-3">Total de Viajes</span>
+                            <div className="text-900 font-medium text-xl">{calcularTotalViajes(viajes)}</div>
+                        </div>
+                        <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                            <i className="pi pi-car text-black-500 text-xl" />
+                        </div>
+                    </div>
+                    <span className="text-500">Total de viajes realizados</span>
+                </div>
+            </div>
             <div className="col-12">
                 <div className="card">
                     <Toast ref={toast} />
@@ -301,16 +373,33 @@ const Crud = () => {
                         responsiveLayout="scroll"
                     >
                         <Column selectionMode="multiple" headerStyle={{ width: '4rem' }}></Column>
+                        <Column field="id" header="Id" sortable body={IdBodyTemplate} exportable={true}></Column>
+                        <Column field="fecha" header="Fecha" sortable body={fechaBodyTemplate}></Column>
                         <Column field="folio_bco" header="Folio Banco" sortable body={folioBcoBodyTemplate}></Column>
                         <Column field="folio" header="Folio" sortable body={folioBodyTemplate}></Column>
-                        <Column field="id_cliente" header="ID Cliente" sortable body={idClienteBodyTemplate}></Column>
-                        <Column field="id_material" header="ID Material" sortable body={idMaterialBodyTemplate}></Column>
-                        <Column field="id_m3" header="ID M3" sortable body={idM3BodyTemplate}></Column>
-                        <Column field="CapHrsViajes" header="Cap. Hrs Viajes" sortable body={capHrsViajesBodyTemplate}></Column>
+                        <Column field="cliente_nombre" header="Cliente" sortable body={clienteBodyTemplate}></Column>
+                        <Column field="origen" header="Origen" sortable body={origenBodyTemplate}></Column>
+                        <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
+                        <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
+                        <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
+                        <Column field="caphrsviajes" header="Cap. Hrs Viajes" sortable body={caphrsviajesBodyTemplate}></Column>
                         <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={viajeDialog} style={{ width: '450px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
+                        <div className="field">
+                            <label htmlFor="fecha">Fecha</label>
+                            <Calendar
+                                id="fecha"
+                                value={viaje.fecha ? new Date(viaje.fecha) : null} // Convert string to Date object
+                                onChange={(e) => setViaje({ ...viaje, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })} // Convert back to YYYY-MM-DD string
+                                dateFormat="yy-mm-dd" // Format as YYYY-MM-DD
+                                showIcon // Displays a calendar icon
+                                required
+                                className={submitted && !viaje.fecha ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.fecha && <small className="p-invalid">Fecha es requerido.</small>}
+                        </div>
                         <div className="field">
                             <label htmlFor="folio_bco">Folio Banco</label>
                             <InputText
@@ -321,7 +410,7 @@ const Crud = () => {
                                 autoFocus
                                 className={submitted && !viaje.folio_bco ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.folio_bco && <small className="p-invalid">Folio Banco is required.</small>}
+                            {submitted && !viaje.folio_bco && <small className="p-invalid">Folio Banco es requerido.</small>}
                         </div>
                         <div className="field">
                             <label htmlFor="folio">Folio</label>
@@ -332,51 +421,70 @@ const Crud = () => {
                                 required
                                 className={submitted && !viaje.folio ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.folio && <small className="p-invalid">Folio is required.</small>}
+                            {submitted && !viaje.folio && <small className="p-invalid">Folio es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="id_cliente">ID Cliente</label>
-                            <InputText
+                            <label htmlFor="id_cliente">Cliente</label>
+                            <Dropdown
                                 id="id_cliente"
-                                value={viaje.id_cliente?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, id_cliente: parseInt(e.target.value) || null })}
+                                value={viaje.id_cliente}
+                                options={clientes.map(c => ({ label: c.nombre, value: c.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
+                                placeholder="Selecciona un cliente"
                                 required
                                 className={submitted && !viaje.id_cliente ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.id_cliente && <small className="p-invalid">ID Cliente is required.</small>}
+                            {submitted && !viaje.id_cliente && <small className="p-invalid">Cliente es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="id_material">ID Material</label>
-                            <InputText
+                            <label htmlFor="id_precio_origen_destino">Origen - Destino</label>
+                            <Dropdown
+                                id="id_precio_origen_destino"
+                                value={viaje.id_precio_origen_destino}
+                                options={preciosOrigenDestino.map(p => ({ label: p.label, value: p.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
+                                placeholder="Selecciona un origen-destino"
+                                required
+                                className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen-Destino es requerido.</small>}
+                        </div>
+                        <div className="field">
+                            <label htmlFor="id_material">Material</label>
+                            <Dropdown
                                 id="id_material"
-                                value={viaje.id_material?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, id_material: parseInt(e.target.value) || null })}
+                                value={viaje.id_material}
+                                options={materiales.map(m => ({ label: m.nombre, value: m.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_material: e.value })}
+                                placeholder="Selecciona un material"
                                 required
                                 className={submitted && !viaje.id_material ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.id_material && <small className="p-invalid">ID Material is required.</small>}
+                            {submitted && !viaje.id_material && <small className="p-invalid">Material es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="id_m3">ID M3</label>
-                            <InputText
+                            <label htmlFor="id_m3">M3</label>
+                            <Dropdown
                                 id="id_m3"
-                                value={viaje.id_m3?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, id_m3: parseInt(e.target.value) || null })}
+                                value={viaje.id_m3}
+                                options={m3Options.map(m => ({ label: m.nombre, value: m.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_m3: e.value })}
+                                placeholder="Selecciona un M3"
                                 required
                                 className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.id_m3 && <small className="p-invalid">ID M3 is required.</small>}
+                            {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="CapHrsViajes">Cap. Hrs Viajes</label>
+                            <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
                             <InputText
-                                id="CapHrsViajes"
-                                value={viaje.CapHrsViajes?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, CapHrsViajes: parseFloat(e.target.value) || null })}
+                                id="caphrsviajes"
+                                value={viaje.caphrsviajes?.toString() || ''}
+                                onChange={(e) => setViaje({ ...viaje, caphrsviajes: parseFloat(e.target.value) || null })}
                                 required
-                                className={submitted && !viaje.CapHrsViajes ? 'p-invalid' : ''}
+                                className={submitted && !viaje.caphrsviajes ? 'p-invalid' : ''}
                             />
-                            {submitted && !viaje.CapHrsViajes && <small className="p-invalid">Cap. Hrs Viajes is required.</small>}
+                            {submitted && !viaje.caphrsviajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
                         </div>
                     </Dialog>
 

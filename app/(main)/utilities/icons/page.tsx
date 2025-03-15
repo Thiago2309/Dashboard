@@ -1,121 +1,371 @@
 'use client';
-import React, { useEffect, useState } from 'react';
-import Link from 'next/link';
-import { IconService } from '../../../../demo/service/IconService';
+import { useState, useEffect, useRef } from 'react';
+import { Calendar } from 'primereact/calendar';
+import { Dropdown } from 'primereact/dropdown';
 import { InputText } from 'primereact/inputtext';
-import type { Demo } from '@/types';
+import { Button } from 'primereact/button';
+import { Toast } from 'primereact/toast';
+import { fetchViajes, fetchProveedores, createGasto, Gasto } from '../../../../Services/BD/gastoService';
+import { TabPanel, TabView } from 'primereact/tabview';
+import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, fetchOperadores, Combustible } from '../../../../Services/BD/combustibleService';
 
-const IconsDemo = () => {
-    const [icons, setIcons] = useState<Demo.Icon[]>([]);
-    const [filteredIcons, setFilteredIcons] = useState<Demo.Icon[]>([]);
+export default function GestionAreas() {
+  return (
+    <div>
+      {/* Formulario de Viajes */}
+      <div className="card crud-demo p-4 mb-4">
+        <h2>Gestión de Notas de Viajes</h2>
+        <FormularioNotaViaje />
+      </div>
 
-    useEffect(() => {
-        IconService.getIcons().then((data) => {
-            data.sort((icon1, icon2) => {
-                if (icon1.properties!.name < icon2.properties!.name) return -1;
-                else if (icon1.properties!.name < icon2.properties!.name) return 1;
-                else return 0;
-            });
+      {/* Formulario de Gastos */}
+      <div className="card crud-demo p-4 mb-4">
+        <h2>Gestión de Gastos</h2>
+        <FormularioGastos />
+      </div>
 
-            setIcons(data);
-            setFilteredIcons(data);
-        });
-    }, []);
+      {/* Formulario de Combustible */}
+      <div className="card crud-demo p-4 mb-4">
+        <h2>Gestión de Combustible</h2>
+        <FormularioCombustible />
+      </div>
 
-    const onFilter = (event: React.FormEvent<HTMLInputElement>) => {
-        if (!event.currentTarget.value) {
-            setFilteredIcons(icons);
-        } else {
-            setFilteredIcons(
-                icons.filter((it) => {
-                    return it.icon && it.icon.tags && it.icon.tags[0].includes(event.currentTarget.value);
-                })
-            );
-        }
-    };
+      {/* Formulario de Clientes */}
+      <div className="card crud-demo p-4 mb-4">
+        <h2>Gestión de Clientes</h2>
+        <FormularioClientes />
+      </div>
+    </div>
+  );
+}
 
-    return (
-        <div className="card">
-            <h2>Icons</h2>
-            <p>
-                PrimeReact components internally use{' '}
-                <Link href="https://github.com/primefaces/primeicons" className="font-medium hover:underline text-primary" target={'_blank'}>
-                    PrimeIcons
-                </Link>{' '}
-                library, the official icons suite from{' '}
-                <Link href="https://www.primetek.com.tr" className="font-medium hover:underline text-primary" target={'_blank'}>
-                    PrimeTek
-                </Link>
-                .
-            </p>
-            <h4>Download</h4>
-            <p>PrimeIcons is available at npm, run the following command to download it to your project.</p>
-            <pre className="app-code">
-                <code>{`npm install primeicons --save`}</code>
-            </pre>
-            <h4>Getting Started</h4>
-            <p>
-                PrimeIcons use the <strong>pi pi-&#123;icon&#125;</strong> syntax such as <strong>pi pi-check</strong>. A standalone icon can be displayed using an element like <i>i</i> or <i>span</i>
-            </p>
-            <pre className="app-code">
-                <code>
-                    {`<i className="pi pi-check" style={{ marginRight: '.5rem' }}></i>
-<i className="pi pi-times"></i>`}
-                </code>
-            </pre>
-            <h4>Size</h4>
-            <p>Size of the icons can easily be changed using font-size property.</p>
-            <pre className="app-code">
-                <code>
-                    {`
-<i className="pi pi-check"></i>
-`}
-                </code>
-            </pre>
-            <i className="pi pi-check"></i>
-
-            <pre className="app-code">
-                <code>
-                    {`
-<i className="pi pi-check" style={{ fontSize: '2rem' }}></i>
-`}
-                </code>
-            </pre>
-            <i className="pi pi-check" style={{ fontSize: '2rem' }}></i>
-            <h4>Spinning Animation</h4>
-            <p>Special pi-spin class applies continuous rotation to an icon.</p>
-            <pre className="app-code">
-                <code>{`<i className="pi pi-spin pi-spinner" style={{ fontSize: '2rem' }}></i>`}</code>
-            </pre>
-            <i className="pi pi-spin pi-spinner" style={{ fontSize: '2rem' }}></i>
-            <h4>List of Icons</h4>
-            <p>
-                Here is the current list of PrimeIcons, more icons are added periodically. You may also{' '}
-                <Link href="https://github.com/primefaces/primeicons/issues" className="font-medium hover:underline text-primary" target={'_blank'}>
-                    request new icons
-                </Link>{' '}
-                at the issue tracker.
-            </p>
-            <div>
-                <InputText type="text" className="w-full p-3 mt-3 mb-5" onInput={onFilter} placeholder="Search an icon" />
+// Componente del Formulario de Nota de Viaje
+const FormularioNotaViaje = () => {
+  return (
+    <div className="card p-4">
+      <TabView>
+        <TabPanel header="Datos Generales">
+          <div className="p-fluid">
+            <div className="field">
+              <label htmlFor="fecha">Fecha</label>
+              <Calendar id="fecha" dateFormat="yy-mm-dd" showIcon />
             </div>
-            <div className="grid icons-list text-center">
-                {filteredIcons &&
-                    filteredIcons.map((iconMeta) => {
-                        const { icon, properties } = iconMeta;
-
-                        return (
-                            icon?.tags?.indexOf('deprecate') === -1 && (
-                                <div className="col-6 sm:col-4 lg:col-3 xl:col-2 pb-5" key={properties?.name}>
-                                    <i className={'text-2xl mb-2 pi pi-' + properties?.name}></i>
-                                    <div>pi-{properties?.name}</div>
-                                </div>
-                            )
-                        );
-                    })}
+            <div className="field">
+              <label htmlFor="folio">Folio</label>
+              <InputText id="folio" />
             </div>
-        </div>
-    );
+            <div className="field">
+              <label htmlFor="id_cliente">Cliente</label>
+              <Dropdown id="id_cliente" options={[]} placeholder="Selecciona un cliente" />
+            </div>
+          </div>
+        </TabPanel>
+        <TabPanel header="Detalles del Viaje">
+          <div className="p-fluid">
+            <div className="field">
+              <label htmlFor="origenDestino">Origen - Destino</label>
+              <Dropdown id="origenDestino" options={[]} placeholder="Selecciona un destino" />
+            </div>
+            <div className="field">
+              <label htmlFor="material">Material</label>
+              <Dropdown id="material" options={[]} placeholder="Selecciona un material" />
+            </div>
+            {/* <div className="field">
+              <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
+              <InputText id="caphrsviajes" />
+            </div> */}
+          </div>
+        </TabPanel>
+      </TabView>
+      <div className="flex justify-content-end mt-4">
+        <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" />
+        {/* <Button label="Cancelar" icon="pi pi-times" className="p-button-secondary" /> */}
+      </div>
+    </div>
+  );
 };
 
-export default IconsDemo;
+// Componente del Formulario de Gastos
+const FormularioGastos = () => {
+  const [gasto, setGasto] = useState<Gasto>({
+      id_viaje: null,
+      fecha: '',
+      id_proveedor: null,
+      refaccion: '',
+      importe: null,
+  });
+  const [viajes, setViajes] = useState<{ id: number; folio: string }[]>([]);
+  const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const toast = useRef<Toast>(null);
+
+  // Cargar datos iniciales (viajes y proveedores)
+  useEffect(() => {
+      fetchViajes().then(setViajes);
+      fetchProveedores().then(setProveedores);
+  }, []);
+
+  // Guardar un gasto
+  const saveGasto = async () => {
+      setSubmitted(true);
+
+      if (
+          gasto.id_viaje !== null &&
+          gasto.fecha &&
+          gasto.id_proveedor !== null &&
+          gasto.refaccion.trim() &&
+          gasto.importe !== null
+      ) {
+          try {
+              await createGasto(gasto);
+              toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Gasto guardado', life: 3000 });
+              setGasto({
+                  id_viaje: null,
+                  fecha: '',
+                  id_proveedor: null,
+                  refaccion: '',
+                  importe: null,
+              });
+              setSubmitted(false);
+          } catch (error) {
+              toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el gasto', life: 3000 });
+          }
+      }
+  };
+
+  return (
+      <div className="card p-4">
+          <Toast ref={toast} />
+          <TabView>
+              <TabPanel header="Datos de Gastos">
+                  <div className="p-fluid">
+                      <div className="field">
+                          <label htmlFor="fecha">Fecha</label>
+                          <Calendar
+                              id="fecha"
+                              value={gasto.fecha ? new Date(gasto.fecha) : null}
+                              onChange={(e) => setGasto({ ...gasto, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                              dateFormat="yy-mm-dd"
+                              showIcon
+                              required
+                              className={submitted && !gasto.fecha ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.fecha && <small className="p-invalid">Fecha es requerida.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="id_viaje">Viaje</label>
+                          <Dropdown
+                              id="id_viaje"
+                              value={gasto.id_viaje}
+                              options={viajes.map(v => ({ label: v.folio, value: v.id }))}
+                              onChange={(e) => setGasto({ ...gasto, id_viaje: e.value })}
+                              placeholder="Selecciona un viaje"
+                              required
+                              className={submitted && !gasto.id_viaje ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.id_viaje && <small className="p-invalid">Viaje es requerido.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="id_proveedor">Proveedor</label>
+                          <Dropdown
+                              id="id_proveedor"
+                              value={gasto.id_proveedor}
+                              options={proveedores.map(p => ({ label: p.nombre, value: p.id }))}
+                              onChange={(e) => setGasto({ ...gasto, id_proveedor: e.value })}
+                              placeholder="Selecciona un proveedor"
+                              required
+                              className={submitted && !gasto.id_proveedor ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.id_proveedor && <small className="p-invalid">Proveedor es requerido.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="refaccion">Refacción</label>
+                          <InputText
+                              id="refaccion"
+                              value={gasto.refaccion}
+                              onChange={(e) => setGasto({ ...gasto, refaccion: e.target.value })}
+                              required
+                              className={submitted && !gasto.refaccion ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.refaccion && <small className="p-invalid">Refacción es requerida.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="importe">Importe</label>
+                          <InputText
+                              id="importe"
+                              value={gasto.importe?.toString() || ''}
+                              onChange={(e) => setGasto({ ...gasto, importe: parseFloat(e.target.value) || null })}
+                              required
+                              className={submitted && !gasto.importe ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.importe && <small className="p-invalid">Importe es requerido.</small>}
+                      </div>
+                  </div>
+              </TabPanel>
+          </TabView>
+          <div className="flex justify-content-end mt-4">
+              <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveGasto} />
+          </div>
+      </div>
+  );
+};
+
+// Componente del Formulario de Combustible
+const FormularioCombustible = () => {
+  const [combustible, setCombustible] = useState<Combustible>({
+      id_viaje: null,
+      fecha: '',
+      id_operador: null,
+      litros: null,
+      importe: null,
+  });
+  const [viajes, setViajes] = useState<{ id: number; folio: string }[]>([]);
+  const [operadores, setOperadores] = useState<{ id: number; nombre: string }[]>([]);
+  const [submitted, setSubmitted] = useState(false);
+  const toast = useRef<Toast>(null);
+
+  // Cargar datos iniciales (viajes y operadores)
+  useEffect(() => {
+      fetchViajes().then(setViajes);
+      fetchOperadores().then(setOperadores);
+  }, []);
+
+  // Guardar o actualizar un combustible
+  const saveCombustible = async () => {
+      setSubmitted(true);
+
+      if (
+          combustible.id_viaje !== null &&
+          combustible.fecha &&
+          combustible.id_operador !== null &&
+          combustible.litros !== null &&
+          combustible.importe !== null
+      ) {
+          try {
+              if (combustible.id) {
+                  const updatedCombustible = await updateCombustible(combustible);
+                  toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Combustible actualizado', life: 3000 });
+              } else {
+                  const newCombustible = await createCombustible(combustible);
+                  toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Combustible creado', life: 3000 });
+              }
+              setCombustible({
+                  id_viaje: null,
+                  fecha: '',
+                  id_operador: null,
+                  litros: null,
+                  importe: null,
+              });
+              setSubmitted(false);
+          } catch (error) {
+              toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el combustible', life: 3000 });
+          }
+      }
+  };
+
+  return (
+      <div className="card p-4">
+          <Toast ref={toast} />
+          <TabView>
+              <TabPanel header="Datos de Combustible">
+                  <div className="p-fluid">
+                      <div className="field">
+                          <label htmlFor="fecha">Fecha</label>
+                          <Calendar
+                              id="fecha"
+                              value={combustible.fecha ? new Date(combustible.fecha) : null}
+                              onChange={(e) => setCombustible({ ...combustible, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                              dateFormat="yy-mm-dd"
+                              showIcon
+                              required
+                              className={submitted && !combustible.fecha ? 'p-invalid' : ''}
+                          />
+                          {submitted && !combustible.fecha && <small className="p-invalid">Fecha es requerida.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="id_viaje">Viaje</label>
+                          <Dropdown
+                              id="id_viaje"
+                              value={combustible.id_viaje}
+                              options={viajes.map(v => ({ label: v.folio, value: v.id }))}
+                              onChange={(e) => setCombustible({ ...combustible, id_viaje: e.value })}
+                              placeholder="Selecciona un viaje"
+                              required
+                              className={submitted && !combustible.id_viaje ? 'p-invalid' : ''}
+                          />
+                          {submitted && !combustible.id_viaje && <small className="p-invalid">Viaje es requerido.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="id_operador">Operador</label>
+                          <Dropdown
+                              id="id_operador"
+                              value={combustible.id_operador}
+                              options={operadores.map(o => ({ label: o.nombre, value: o.id }))}
+                              onChange={(e) => setCombustible({ ...combustible, id_operador: e.value })}
+                              placeholder="Selecciona un operador"
+                              required
+                              className={submitted && !combustible.id_operador ? 'p-invalid' : ''}
+                          />
+                          {submitted && !combustible.id_operador && <small className="p-invalid">Operador es requerido.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="litros">Litros</label>
+                          <InputText
+                              id="litros"
+                              value={combustible.litros?.toString() || ''}
+                              onChange={(e) => setCombustible({ ...combustible, litros: parseFloat(e.target.value) || null })}
+                              required
+                              className={submitted && !combustible.litros ? 'p-invalid' : ''}
+                          />
+                          {submitted && !combustible.litros && <small className="p-invalid">Litros es requerido.</small>}
+                      </div>
+                      <div className="field">
+                          <label htmlFor="importe">Importe</label>
+                          <InputText
+                              id="importe"
+                              value={combustible.importe?.toString() || ''}
+                              onChange={(e) => setCombustible({ ...combustible, importe: parseFloat(e.target.value) || null })}
+                              required
+                              className={submitted && !combustible.importe ? 'p-invalid' : ''}
+                          />
+                          {submitted && !combustible.importe && <small className="p-invalid">Importe es requerido.</small>}
+                      </div>
+                  </div>
+              </TabPanel>
+          </TabView>
+          <div className="flex justify-content-end mt-4">
+              <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveCombustible} />
+          </div>
+      </div>
+  );
+};
+
+// Componente del Formulario de Clientes
+const FormularioClientes = () => {
+  return (
+    <div className="card p-4">
+      <TabView>
+        <TabPanel header="Datos del Cliente">
+          <div className="p-fluid">
+            <div className="field">
+              <label htmlFor="nombreCliente">Nombre</label>
+              <InputText id="nombreCliente" />
+            </div>
+            <div className="field">
+              <label htmlFor="direccionCliente">Dirección</label>
+              <InputText id="direccionCliente" />
+            </div>
+            <div className="field">
+              <label htmlFor="telefonoCliente">Teléfono</label>
+              <InputText id="telefonoCliente" />
+            </div>
+          </div>
+        </TabPanel>
+      </TabView>
+      <div className="flex justify-content-end mt-4">
+        <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" />
+        {/* <Button label="Cancelar" icon="pi pi-times" className="p-button-secondary" /> */}
+      </div>
+    </div>
+  );
+};
