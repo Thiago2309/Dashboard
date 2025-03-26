@@ -43,6 +43,7 @@ const LoginPage = () => {
                     const userData = await fetchUserData(user.id);
                     if (userData) {
                         console.log('Datos del usuario:', userData);
+                        window.location.href = "/";
                         router.push('/');
                     } else {
                         alert('No se encontraron datos adicionales del usuario.');

@@ -154,3 +154,9 @@ export const getsession = async () => {
     return data.session; // o data.session si se encuentra la sesión
   };
   
+
+
+export const getUserRoleIdFromLocalStorage = (): number | null => {
+    const userData = localStorage.getItem('userData');
+    return userData ? JSON.parse(userData).roleid as number : null;
+};
