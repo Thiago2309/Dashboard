@@ -1,4 +1,5 @@
-import { useRouter } from 'next/navigation';
+"use client";
+import { useRouter } from 'next/navigation'; // Importar correctamente
 import React, { useState } from 'react';
 import { Checkbox } from 'primereact/checkbox';
 import { Button } from 'primereact/button';
@@ -21,7 +22,7 @@ const LoginPage = () => {
     const handleSubmit = async () => {
         if (isLoading) return;
         setIsLoading(true);
-    
+
         try {
             if (isRegistering) {
                 const sueldoNumber = parseFloat(sueldo);
@@ -29,16 +30,16 @@ const LoginPage = () => {
                     alert('El sueldo debe ser un número válido');
                     return;
                 }
-    
-                const user = await register(email, password, { nombre, apellido, ciudad, sueldo: sueldoNumber });
+
+                const user = await register(email, password, { nombre, apellido, ciudad, sueldo: sueldoNumber, pass: password });
                 if (user) {
                     alert('¡Registro exitoso! Por favor inicia sesión');
+                    
                     setIsRegistering(false);
                 }
             } else {
                 const user = await login(email, password);
                 if (user) {
-                   
                     const userData = await fetchUserData(user.id);
                     if (userData) {
                         console.log('Datos del usuario:', userData);
