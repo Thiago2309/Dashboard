@@ -2,7 +2,7 @@ import { supabase } from '../superbase.service';
 
 export interface Gasto {
     id?: number;
-    id_viaje: number | null;
+    id_viaje?: number | null;
     fecha: string;
     id_proveedor: number | null;
     refaccion: string;
@@ -36,25 +36,17 @@ export const fetchGastos = async (): Promise<Gasto[]> => {
     return data || [];
 };
 
-export const createGasto = async (gasto: Omit<Gasto, 'id' | 'created_at' | 'viaje_folio' | 'proveedor_nombre'>): Promise<Gasto> => {
+export const createGasto = async (gasto: Omit<Gasto, 'id'>): Promise<Gasto> => {
+    console.log("Datos enviados a Supabase:", gasto);
+
     const { data, error } = await supabase
         .from('gastos')
         .insert([gasto])
-        .select(`
-            id,
-            id_viaje,
-            fecha,
-            id_proveedor,
-            refaccion,
-            importe,
-            created_at,
-            viajes:folio (viaje_folio),
-            proveedores:nombre (proveedor_nombre)
-        `)
+        .select('*')
         .single();
 
     if (error) {
-        console.error('Error creating gasto:', error);
+        console.error('Error creating Caja Chica:', error);
         throw error;
     }
 
@@ -72,17 +64,7 @@ export const updateGasto = async (gasto: Gasto): Promise<Gasto> => {
             importe: gasto.importe
         })
         .eq('id', gasto.id)
-        .select(`
-            id,
-            id_viaje,
-            fecha,
-            id_proveedor,
-            refaccion,
-            importe,
-            created_at,
-            viajes:folio (viaje_folio),
-            proveedores:nombre (proveedor_nombre)
-        `)
+        .select('*')
         .single();
 
     if (error) {

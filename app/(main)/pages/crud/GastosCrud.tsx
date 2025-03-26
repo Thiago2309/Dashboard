@@ -78,7 +78,6 @@ const GastosCrud = () => {
         setSubmitted(true);
     
         if (
-            gasto.id_viaje !== null &&
             gasto.fecha &&
             gasto.id_proveedor !== null &&
             gasto.refaccion.trim() &&
@@ -98,6 +97,7 @@ const GastosCrud = () => {
                     setTotalGastos(calcularTotalGastos(updatedList)); // Recalcular total
                     toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Gasto Created', life: 3000 });
                 }
+                fetchGastos().then(setGastos);
                 setGastoDialog(false);
                 setGasto(emptyGasto);
             } catch (error) {
@@ -189,7 +189,7 @@ const GastosCrud = () => {
         return (
             <>
                 <span className="p-column-title">Viaje</span>
-                {rowData.id_viaje}
+                {rowData.id_viaje ?? '-'}
             </>
         );
     };
@@ -310,7 +310,7 @@ const GastosCrud = () => {
 
                     <Dialog visible={gastoDialog} style={{ width: '450px' }} header="Detalle de Gastos" modal className="p-fluid" footer={gastoDialogFooter} onHide={hideDialog}>
                         <div className="field">
-                            <label htmlFor="fecha">Fecha</label>
+                            <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
                             <Calendar
                                 id="fecha"
                                 value={gasto.fecha ? new Date(gasto.fecha) : null}
@@ -330,13 +330,10 @@ const GastosCrud = () => {
                                 options={viajes.map(v => ({ label: v.folio, value: v.id }))}
                                 onChange={(e) => setGasto({ ...gasto, id_viaje: e.value })}
                                 placeholder="Selecciona un viaje"
-                                required
-                                className={submitted && !gasto.id_viaje ? 'p-invalid' : ''}
                             />
-                            {submitted && !gasto.id_viaje && <small className="p-invalid">Viaje es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="id_proveedor">Proveedor</label>
+                            <label htmlFor="id_proveedor">Proveedor</label><span style={{ color: 'red' }}> *</span>
                             <Dropdown
                                 id="id_proveedor"
                                 value={gasto.id_proveedor}
@@ -349,7 +346,7 @@ const GastosCrud = () => {
                             {submitted && !gasto.id_proveedor && <small className="p-invalid">Proveedor es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="refaccion">Refacción</label>
+                            <label htmlFor="refaccion">Refacción</label><span style={{ color: 'red' }}> *</span>
                             <InputText
                                 id="refaccion"
                                 value={gasto.refaccion}
@@ -360,7 +357,7 @@ const GastosCrud = () => {
                             {submitted && !gasto.refaccion && <small className="p-invalid">Refacción es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="importe">Importe</label>
+                            <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
                             <InputText
                                 id="importe"
                                 value={gasto.importe?.toString() || ''}

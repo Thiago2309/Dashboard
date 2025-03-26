@@ -36,9 +36,9 @@ const Crud = () => {
 
     // State for dropdown options
     const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
-    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string }[]>([]);
+    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
+    const [m3Options, setM3Options] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
-    const [m3Options, setM3Options] = useState<{ id: number; nombre: string }[]>([]);
 
     // Función para calcular el total de horas de viaje
     const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
@@ -69,7 +69,10 @@ const Crud = () => {
     }, [viajes]);
 
     const openNew = () => {
-        setViaje(emptyViaje);
+        setViaje({
+            ...emptyViaje,
+            id: undefined, // Asegúrate de que no tenga un ID
+        });
         setSubmitted(false);
         setViajeDialog(true);
     };
@@ -97,31 +100,55 @@ const Crud = () => {
             viaje.id_material !== null &&
             viaje.id_m3 !== null &&
             viaje.id_precio_origen_destino !== null &&
-            viaje.caphrsviajes !== null &&
             viaje.fecha
         ) {
             try {
-                const viajeLimpio = {
-                    ...viaje,
-                    cliente_nombre: undefined, // Borra estos datos si existen
-                    material_nombre: undefined,
-                    m3_nombre: undefined,
-                    origen: undefined,
-                    destino: undefined,
-                };
+                // Obtener el precio_unidad y metros_cubicos
+                const precioOrigenDestino = preciosOrigenDestino.find(p => p.id === viaje.id_precio_origen_destino);
+                const m3 = m3Options.find(m => m.id === viaje.id_m3);
     
-                if (viaje.id) {
-                    const updatedViaje = await updateViaje(viajeLimpio);
-                    setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
-                    toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
+                if (precioOrigenDestino && m3) {
+                    const precio_unidad = precioOrigenDestino.precio_unidad;
+                    const metros_cubicos = m3.metros_cubicos;
+    
+                    // Calcular caphrsviajes
+                    const caphrsviajes = precio_unidad * metros_cubicos;
+    
+                    console.log('precio_unidad:', precio_unidad);
+                    console.log('metros_cubicos:', metros_cubicos);
+                    console.log('caphrsviajes:', caphrsviajes);
+    
+                    // Crear un objeto limpio solo con las columnas de la tabla viajes
+                    const viajeLimpio = {
+                        id_cliente: viaje.id_cliente,
+                        fecha: viaje.fecha,
+                        folio_bco: viaje.folio_bco,
+                        folio: viaje.folio,
+                        id_precio_origen_destino: viaje.id_precio_origen_destino,
+                        id_material: viaje.id_material,
+                        id_m3: viaje.id_m3,
+                        caphrsviajes,
+                    };
+    
+                    console.log('Objeto enviado a Supabase:', { ...viajeLimpio, id: viaje.id }); // Verifica que el id esté incluido
+    
+                    if (viaje.id) {
+                        const updatedViaje = await updateViaje({ ...viajeLimpio, id: viaje.id });
+                        setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
+                    } else {
+                        const newViaje = await createViaje(viajeLimpio);
+                        setViajes([...viajes, newViaje]);
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
+                    }
+                    fetchViajes().then(setViajes); //MANDA A LLAMAR LA TABLA
+                    setViajeDialog(false);
+                    setViaje(emptyViaje);
                 } else {
-                    const newViaje = await createViaje(viajeLimpio);
-                    setViajes([...viajes, newViaje]);
-                    toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
+                    toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error fetching precio_unidad or metros_cubicos', life: 3000 });
                 }
-                setViajeDialog(false);
-                setViaje(emptyViaje);
             } catch (error) {
+                console.error('Error saving viaje:', error);
                 toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving viaje', life: 3000 });
             }
         }
@@ -476,15 +503,19 @@ const Crud = () => {
                             {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
-                            <InputText
-                                id="caphrsviajes"
-                                value={viaje.caphrsviajes?.toString() || ''}
-                                onChange={(e) => setViaje({ ...viaje, caphrsviajes: parseFloat(e.target.value) || null })}
-                                required
-                                className={submitted && !viaje.caphrsviajes ? 'p-invalid' : ''}
-                            />
-                            {submitted && !viaje.caphrsviajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
+                            {viaje.id && ( // Solo muestra el campo si viaje.id existe (modo update)
+                                <>
+                                    <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
+                                    <InputText
+                                        id="caphrsviajes"
+                                        value={viaje.caphrsviajes?.toString() || ''}
+                                        onChange={(e) => setViaje({ ...viaje, caphrsviajes: parseFloat(e.target.value) || null })}
+                                        required
+                                        className={submitted && !viaje.caphrsviajes ? 'p-invalid' : ''}
+                                    />
+                                    {submitted && !viaje.caphrsviajes && <small className="p-invalid">Cap. Hrs Viajes es requerido.</small>}
+                                </>
+                            )}
                         </div>
                     </Dialog>
 
@@ -493,7 +524,7 @@ const Crud = () => {
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
                             {viaje && (
                                 <span>
-                                    Are you sure you want to delete <b>{viaje.folio_bco}</b>?
+                                    Estas seguro de Eliminar el Id <b>{viaje.id}</b>?
                                 </span>
                             )}
                         </div>
@@ -502,7 +533,7 @@ const Crud = () => {
                     <Dialog visible={deleteViajesDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteViajesDialogFooter} onHide={hideDeleteViajesDialog}>
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                            {viaje && <span>Are you sure you want to delete the selected viajes?</span>}
+                            {viaje && <span>Estas seguro de Eliminar los seleccionados?</span>}
                         </div>
                     </Dialog>
                 </div>

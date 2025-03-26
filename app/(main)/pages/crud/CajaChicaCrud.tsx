@@ -193,7 +193,7 @@ const CajaChicaCrud = () => {
         return (
             <>
                 <span className="p-column-title">Ingreso</span>
-                $ {rowData.ingreso}
+                $ {rowData.ingreso ?? "0"}
             </>
         );
     };
@@ -202,7 +202,7 @@ const CajaChicaCrud = () => {
         return (
             <>
                 <span className="p-column-title">Egreso</span>
-                $ {rowData.egreso}
+                $ {rowData.egreso ?? "0"}
             </>
         );
     };
