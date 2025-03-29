@@ -14,6 +14,7 @@ const AppMenu = () => {
     const userRoleId = getUserRoleIdFromLocalStorage();
     console.log('userRoleId', userRoleId);
     const isAdmin = userRoleId === 1;
+    const isAlmacen = userRoleId === 4;
     console.log('isAdmin', isAdmin);
 
     const model: AppMenuItem[] = [
@@ -28,15 +29,20 @@ const AppMenu = () => {
                 // { label: 'PrimeFlex', icon: 'pi pi-fw pi-desktop', url: 'https://primeflex.org/', target: '_blank' }
             ]
         },
+        ...(isAlmacen
+            ? [
+                    {
+                        label: 'Almacen',
+                        items: [
+                            { label: 'Free Blocks', icon: 'pi pi-fw pi-eye', to: '/blocks', badge: "NEW" as "NEW" },
+                            { label: 'All Blocks', icon: 'pi pi-fw pi-globe', url: 'https://blocks.primereact.org', target: '_blank' }
+                        ]
+                    },
+                ]
+            : []),
+        
         ...(isAdmin
             ? [
-                  {
-                      label: 'Almacen',
-                      items: [
-                          { label: 'Free Blocks', icon: 'pi pi-fw pi-eye', to: '/blocks', badge: "NEW" as "NEW" },
-                          { label: 'All Blocks', icon: 'pi pi-fw pi-globe', url: 'https://blocks.primereact.org', target: '_blank' }
-                      ]
-                  },
                   {
                       label: 'Administración',
                       items: [

@@ -10,35 +10,52 @@ import { TabPanel, TabView } from 'primereact/tabview';
 import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, fetchOperadores, Combustible } from '../../../../Services/BD/combustibleService';
 import { fetchClientes, createCliente, updateCliente, Cliente } from '../../../../Services/BD/clientesService';
 import {createViaje, updateViaje, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, Viaje } from '../../../../Services/BD/viajeService';
+import { getUserRoleIdFromLocalStorage } from '@/Services/BD/userService';
+
+const userRoleId = getUserRoleIdFromLocalStorage();
+const isAlmacen = userRoleId === 4;
 
 export default function GestionAreas() {
-  return (
-    <div>
-      {/* Formulario de Viajes */}
-      <div className="card crud-demo p-4 mb-4">
-        <h2>Gestión de Notas de Viajes</h2>
-        <FormularioNotaViaje />
+    if (isAlmacen) {
+      return (
+        <div>
+          {/* Solo muestra el formulario de Gastos para rol 4 */}
+          <div className="card crud-demo p-4 mb-4">
+            <h2>Gestión de Gastos</h2>
+            <FormularioGastos />
+          </div>
+        </div>
+      );
+    }
+  
+    // Muestra todos los formularios para otros roles
+    return (
+      <div>
+        {/* Formulario de Viajes */}
+        <div className="card crud-demo p-4 mb-4">
+          <h2>Gestión de Notas de Viajes</h2>
+          <FormularioNotaViaje />
+        </div>
+  
+        {/* Formulario de Gastos */}
+        <div className="card crud-demo p-4 mb-4">
+          <h2>Gestión de Gastos</h2>
+          <FormularioGastos />
+        </div>
+  
+        {/* Formulario de Combustible */}
+        <div className="card crud-demo p-4 mb-4">
+          <h2>Gestión de Combustible</h2>
+          <FormularioCombustible />
+        </div>
+  
+        {/* Formulario de Clientes */}
+        <div className="card crud-demo p-4 mb-4">
+          <h2>Gestión de Clientes</h2>
+          <FormularioCliente />
+        </div>
       </div>
-
-      {/* Formulario de Gastos */}
-      <div className="card crud-demo p-4 mb-4">
-        <h2>Gestión de Gastos</h2>
-        <FormularioGastos />
-      </div>
-
-      {/* Formulario de Combustible */}
-      <div className="card crud-demo p-4 mb-4">
-        <h2>Gestión de Combustible</h2>
-        <FormularioCombustible />
-      </div>
-
-      {/* Formulario de Clientes */}
-      <div className="card crud-demo p-4 mb-4">
-        <h2>Gestión de Clientes</h2>
-        <FormularioCliente />
-      </div>
-    </div>
-  );
+    );
 }
 
 // Componente del Formulario de Nota de Viaje
@@ -248,6 +265,7 @@ const FormularioGastos = () => {
       id_proveedor: null,
       refaccion: '',
       importe: null,
+      descripcion: '',
   });
   const [viajes, setViajes] = useState<{ id: number; folio: string }[]>([]);
   const [proveedores, setProveedores] = useState<{ id: number; nombre: string }[]>([]);
@@ -278,6 +296,7 @@ const FormularioGastos = () => {
                   id_proveedor: null,
                   refaccion: '',
                   importe: null,
+                  descripcion: '',
               });
               setSubmitted(false);
           } catch (error) {
@@ -340,6 +359,17 @@ const FormularioGastos = () => {
                           {submitted && !gasto.refaccion && <small className="p-invalid">Refacción es requerida.</small>}
                       </div>
                       <div className="field">
+                          <label htmlFor="descripcion">Descripcion</label><span style={{ color: 'red' }}> *</span>
+                          <InputText
+                              id="descripcion"
+                              value={gasto.descripcion}
+                              onChange={(e) => setGasto({ ...gasto, descripcion: e.target.value })}
+                              required
+                              className={submitted && !gasto.descripcion ? 'p-invalid' : ''}
+                          />
+                          {submitted && !gasto.descripcion && <small className="p-invalid">descripcion es requerida.</small>}
+                      </div>
+                      <div className="field">
                           <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
                           <InputText
                               id="importe"
@@ -385,7 +415,6 @@ const FormularioCombustible = () => {
       setSubmitted(true);
 
       if (
-          combustible.id_viaje !== null &&
           combustible.fecha &&
           combustible.id_operador !== null &&
           combustible.litros !== null &&
@@ -433,15 +462,13 @@ const FormularioCombustible = () => {
                           {submitted && !combustible.fecha && <small className="p-invalid">Fecha es requerida.</small>}
                       </div>
                       <div className="field">
-                          <label htmlFor="id_viaje">Viaje</label><span style={{ color: 'red' }}> *</span>
+                          <label htmlFor="id_viaje">Viaje</label>
                           <Dropdown
                               id="id_viaje"
                               value={combustible.id_viaje}
                               options={viajes.map(v => ({ label: v.folio, value: v.id }))}
                               onChange={(e) => setCombustible({ ...combustible, id_viaje: e.value })}
                               placeholder="Selecciona un viaje"
-                              required
-                              className={submitted && !combustible.id_viaje ? 'p-invalid' : ''}
                           />
                           {submitted && !combustible.id_viaje && <small className="p-invalid">Viaje es requerido.</small>}
                       </div>

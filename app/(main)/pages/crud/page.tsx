@@ -238,7 +238,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Folio Banco</span>
-                {rowData.folio_bco}
+                {rowData.folio_bco ?? '-'}
             </>
         );
     };
@@ -247,7 +247,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Folio</span>
-                {rowData.folio}
+                {rowData.folio ?? '-'}
             </>
         );
     };
@@ -350,10 +350,12 @@ const Crud = () => {
             <div className="col-12 lg:col-6 xl:col-3">
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
-                        <div>
-                            <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
-                            <div className="text-900 font-medium text-xl">{calcularTotalHorasViajes(viajes)} Pesos</div>
+                    <div>
+                        <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
+                        <div className="text-900 font-medium text-xl">
+                            $ {calcularTotalHorasViajes(viajes).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Pesos
                         </div>
+                    </div>
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
                             <i className="pi pi-clock text-black-500 text-xl" />
                         </div>
