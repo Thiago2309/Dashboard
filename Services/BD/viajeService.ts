@@ -101,8 +101,8 @@ export const deleteViaje = async (id: number): Promise<void> => {
 };
 
 // New helper functions to fetch dropdown options
-export const fetchClientes = async (): Promise<{ id: number; nombre: string }[]> => {
-    const { data, error } = await supabase.from('clientes').select('id, nombre');
+export const fetchClientes = async (): Promise<{ id: number; empresa: string }[]> => {
+    const { data, error } = await supabase.from('clientes').select('id, empresa').eq('estatus', 1); // solo clientes Activos
     if (error) throw error;
     return data || [];
 };

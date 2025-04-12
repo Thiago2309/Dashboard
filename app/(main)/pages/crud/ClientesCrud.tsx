@@ -6,13 +6,24 @@ import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
+import { Dropdown } from 'primereact/dropdown';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchClientes, createCliente, updateCliente, deleteCliente, Cliente } from '../../../../Services/BD/clientesService';
+import { RadioButton } from 'primereact/radiobutton';
 
 const ClientesCrud = () => {
     let emptyCliente: Cliente = {
-        nombre: '',
+        empresa: '',
         contacto: '',
+        telefono: '',
+        tipo_cliente: undefined,
+        rfc: '',
+        direccion: '',
+        metodo_pago: undefined,
+        uso_cfdi: '',
+        regimen_fiscal: '',
+        obra: '',
+        estatus: undefined,
     };
 
     const [clientesList, setClientesList] = useState<Cliente[]>([]);
@@ -25,6 +36,22 @@ const ClientesCrud = () => {
     const [globalFilter, setGlobalFilter] = useState('');
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
+
+    const metodosPago = [
+        { label: 'Efectivo', value: 'Efectivo' },
+        { label: 'Trasferencia', value: 'Trasferencia' }
+    ];
+
+    const TipoCliente = [
+        { label: 'Efectivo', value: 'Efectivo' },
+        { label: 'Facturado', value: 'Facturado' }
+    ];
+
+    const usosCFDI = [
+        { label: 'G01 - Adquisición de mercancías', value: 'G01' },
+        { label: 'G03 - Gastos en general', value: 'G03' },
+        // Agrega más opciones según sea necesario
+    ];
 
     useEffect(() => {
         fetchClientes().then(setClientesList);
@@ -52,7 +79,12 @@ const ClientesCrud = () => {
     const saveCliente = async () => {
         setSubmitted(true);
     
-        if (cliente.nombre.trim() && cliente.contacto.trim()) {
+        if (cliente.empresa.trim() && cliente.contacto.trim()) {
+            if (cliente.tipo_cliente === 'Facturado' && !cliente.rfc) {
+                toast.current?.show({ severity: 'error', summary: 'Error', detail: 'RFC es requerido para facturación', life: 3000 });
+                return;
+            }
+
             try {
                 if (cliente.id) {
                     const updatedCliente = await updateCliente(cliente);
@@ -65,6 +97,7 @@ const ClientesCrud = () => {
                 }
                 setClienteDialog(false);
                 setCliente(emptyCliente);
+                fetchClientes().then(setClientesList);
             } catch (error) {
                 toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving Cliente', life: 3000 });
             }
@@ -141,11 +174,11 @@ const ClientesCrud = () => {
         );
     };
 
-    const nombreBodyTemplate = (rowData: Cliente) => {
+    const empresaBodyTemplate = (rowData: Cliente) => {
         return (
             <>
-                <span className="p-column-title">Nombre</span>
-                {rowData.nombre}
+                <span className="p-column-title">Empresa</span>
+                {rowData.empresa || '-'}
             </>
         );
     };
@@ -154,8 +187,88 @@ const ClientesCrud = () => {
         return (
             <>
                 <span className="p-column-title">Contacto</span>
-                {rowData.contacto}
+                {rowData.contacto || '-'}
             </>
+        );
+    };
+
+    const TelefonoBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Telefono</span>
+                {rowData.telefono || '-'}
+            </>
+        );
+    };
+
+    const TipoClienteBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Tipo de Cliente</span>
+                {rowData.tipo_cliente || '-'}
+            </>
+        );
+    };
+
+    const metodoPagoBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Método Pago</span>
+                {rowData.metodo_pago || '-'}
+            </>
+        );
+    };
+
+    const rfcBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">RFC</span>
+                {rowData.rfc || '-'}
+            </>
+        );
+    };
+
+    const cfdiBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">CFDI</span>
+                {rowData.uso_cfdi || '-'}
+            </>
+        );
+    };
+
+    const RegiFiscalBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Regimen Fiscal</span>
+                {rowData.regimen_fiscal || '-'}
+            </>
+        );
+    };
+
+    const direccionBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Dirección</span>
+                {rowData.direccion || '-'}
+            </>
+        );
+    };
+
+    const obraBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">Obra</span>
+                {rowData.obra || '-'}
+            </>
+        );
+    };
+
+    const estatusBodyTemplate = (rowData: Cliente) => {
+        return (
+            <span className={`product-badge p-tag ${rowData.estatus ? 'p-tag-success' : 'p-tag-danger'}`}>
+                {rowData.estatus ? 'Activo' : 'Inactivo'}
+            </span>
         );
     };
 
@@ -225,25 +338,35 @@ const ClientesCrud = () => {
                     >
                         <Column selectionMode="multiple" headerStyle={{ width: '4rem' }}></Column>
                         <Column field="id" header="Id" sortable body={idBodyTemplate}></Column>
-                        <Column field="nombre" header="Nombre" sortable body={nombreBodyTemplate}></Column>
+                        <Column field="empresa" header="Empresa" sortable body={empresaBodyTemplate}></Column>
                         <Column field="contacto" header="Contacto" sortable body={contactoBodyTemplate}></Column>
-                        <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column field="telefono" header="telefono" sortable body={TelefonoBodyTemplate}></Column>
+                        <Column field="direccion" header="Dirección" sortable body={direccionBodyTemplate}></Column>
+                        <Column field="Tipo cliente" header="Tipo Cliente" sortable body={TipoClienteBodyTemplate}></Column>
+                        <Column field="metodo_pago" header="Método Pago" sortable body={metodoPagoBodyTemplate}></Column>
+                        <Column field="rfc" header="RFC" sortable body={rfcBodyTemplate}></Column>
+                        <Column field="CFDI" header="CFDI" sortable body={cfdiBodyTemplate}></Column>
+                        <Column field="Regimen_Fiscal" header="Regimen Fiscal" sortable body={RegiFiscalBodyTemplate}></Column>
+                        <Column field="Obra" header="Obra" sortable body={obraBodyTemplate}></Column>
+                        <Column field="estatus" header="Status" sortable body={estatusBodyTemplate}></Column>
+                        <Column header="Accion" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={clienteDialog} style={{ width: '450px' }} header="Detalles de Cliente" modal className="p-fluid" footer={clienteDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={clienteDialog} style={{ width: '600px' }} header="Detalles de Cliente" modal className="p-fluid" footer={clienteDialogFooter} onHide={hideDialog}>
                         <div className="field">
-                            <label htmlFor="nombre">Nombre</label>
+                            <label htmlFor="empresa">Empresa</label><span style={{ color: 'red' }}> *</span>
                             <InputText
-                                id="nombre"
-                                value={cliente.nombre}
-                                onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
+                                id="empresa"
+                                value={cliente.empresa}
+                                onChange={(e) => setCliente({ ...cliente, empresa: e.target.value })}
                                 required
-                                className={submitted && !cliente.nombre ? 'p-invalid' : ''}
+                                className={submitted && !cliente.empresa ? 'p-invalid' : ''}
                             />
-                            {submitted && !cliente.nombre && <small className="p-invalid">Nombre es requerido.</small>}
+                            {submitted && !cliente.empresa && <small className="p-invalid">Empresa es requerida.</small>}
                         </div>
+                        
                         <div className="field">
-                            <label htmlFor="contacto">Contacto</label>
+                            <label htmlFor="contacto">Contacto</label><span style={{ color: 'red' }}> *</span>
                             <InputText
                                 id="contacto"
                                 value={cliente.contacto}
@@ -253,6 +376,120 @@ const ClientesCrud = () => {
                             />
                             {submitted && !cliente.contacto && <small className="p-invalid">Contacto es requerido.</small>}
                         </div>
+
+                        <div className="field">
+                            <label htmlFor="telefono">Teléfono</label>
+                            <InputText
+                                id="telefono"
+                                value={cliente.telefono || ''}
+                                onChange={(e) => setCliente({ ...cliente, telefono: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="field">
+                            <label htmlFor="direccion">Dirección</label><span style={{ color: 'red' }}> *</span>
+                            <InputText
+                                id="direccion"
+                                value={cliente.direccion || ''}
+                                onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })}
+                            />
+                            {submitted && !cliente.direccion && <small className="p-invalid">Direccion es requerido.</small>}
+                        </div>
+
+                        <div className="field">
+                            <label htmlFor="TipoCliente">Tipo Cliente</label><span style={{ color: 'red' }}> *</span>
+                            <Dropdown
+                                id="tipo_cliente"
+                                value={cliente.tipo_cliente}
+                                options={TipoCliente}
+                                onChange={(e) => setCliente({ ...cliente, tipo_cliente: e.value })}
+                                placeholder="Seleccione método"
+                            />
+                        </div>
+
+                        <div className="field">
+                            <label htmlFor="metodo_pago">Método de Pago</label><span style={{ color: 'red' }}> *</span>
+                            <Dropdown
+                                id="metodo_pago"
+                                value={cliente.metodo_pago}
+                                options={metodosPago}
+                                onChange={(e) => setCliente({ ...cliente, metodo_pago: e.value })}
+                                placeholder="Seleccione método"
+                            />
+                        </div>
+
+                        {cliente.tipo_cliente === 'Facturado' && (
+                            <>
+                                <div className="field">
+                                    <label htmlFor="rfc">RFC</label><span style={{ color: 'red' }}> *</span>
+                                    <InputText
+                                        id="rfc"
+                                        value={cliente.rfc || ''}
+                                        maxLength={13} // Solo permite 13 caracteres
+                                        onChange={(e) => setCliente({ ...cliente, rfc: e.target.value })}
+                                        className={submitted && cliente.tipo_cliente === 'Facturado' && !cliente.rfc ? 'p-invalid' : ''}
+                                    />
+                                    {submitted && cliente.tipo_cliente === 'Facturado' && !cliente.rfc && (
+                                        <small className="p-invalid">RFC es requerido para facturación</small>
+                                    )}
+                                </div>
+
+                                <div className="field">
+                                    <label htmlFor="uso_cfdi">Uso CFDI</label>
+                                    <Dropdown
+                                        id="uso_cfdi"
+                                        value={cliente.uso_cfdi}
+                                        options={usosCFDI}
+                                        onChange={(e) => setCliente({ ...cliente, uso_cfdi: e.value })}
+                                        placeholder="Seleccione uso CFDI"
+                                    />
+                                </div>
+
+                                <div className="field">
+                                    <label htmlFor="regimen_fiscal">Régimen Fiscal</label>
+                                    <InputText
+                                        id="regimen_fiscal"
+                                        value={cliente.regimen_fiscal || ''}
+                                        onChange={(e) => setCliente({ ...cliente, regimen_fiscal: e.target.value })}
+                                    />
+                                </div>
+                            </>
+                        )}
+
+                        <div className="field">
+                            <label htmlFor="obra">Obra - Proyecto</label>
+                            <InputText
+                                id="obra"
+                                value={cliente.obra || ''}
+                                onChange={(e) => setCliente({ ...cliente, obra: e.target.value })}
+                            />
+                        </div>
+
+                        <div className="field">
+                            <label htmlFor="estatus">Estatus</label>
+                            <div className="flex align-items-center">
+                                <div className="flex align-items-center mr-3">
+                                    <RadioButton
+                                        inputId="estatus_activo"
+                                        name="estatus"
+                                        value={1}
+                                        onChange={(e) => setCliente({ ...cliente, estatus: 1 })}
+                                        checked={cliente.estatus === 1}
+                                    />
+                                    <label htmlFor="estatus_activo" className="ml-2">Activo</label>
+                                </div>
+                                <div className="flex align-items-center">
+                                    <RadioButton
+                                        inputId="estatus_inactivo"
+                                        name="estatus"
+                                        value={0}
+                                        onChange={(e) => setCliente({ ...cliente, estatus: 0 })}
+                                        checked={cliente.estatus === 0}
+                                    />
+                                    <label htmlFor="estatus_inactivo" className="ml-2">Inactivo</label>
+                                </div>
+                            </div>
+                        </div>
                     </Dialog>
 
                     <Dialog visible={deleteClienteDialog} style={{ width: '450px' }} header="Confirmar" modal footer={deleteClienteDialogFooter} onHide={hideDeleteClienteDialog}>
@@ -260,7 +497,7 @@ const ClientesCrud = () => {
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
                             {cliente && (
                                 <span>
-                                    ¿Estás seguro de eliminar <b>{cliente.nombre}</b>?
+                                    ¿Estás seguro de eliminar <b>{cliente.empresa}</b>?
                                 </span>
                             )}
                         </div>

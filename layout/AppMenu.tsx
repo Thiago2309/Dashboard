@@ -29,7 +29,7 @@ const AppMenu = () => {
                 // { label: 'PrimeFlex', icon: 'pi pi-fw pi-desktop', url: 'https://primeflex.org/', target: '_blank' }
             ]
         },
-        ...(isAlmacen
+        ...(isAlmacen || isAdmin
             ? [
                     {
                         label: 'Almacen',

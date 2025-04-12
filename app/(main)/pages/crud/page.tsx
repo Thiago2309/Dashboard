@@ -35,7 +35,7 @@ const Crud = () => {
     const dt = useRef<DataTable<any>>(null);
 
     // State for dropdown options
-    const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
+    const [clientes, setClientes] = useState<{ id: number; empresa: string }[]>([]);
     const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
@@ -457,7 +457,7 @@ const Crud = () => {
                             <Dropdown
                                 id="id_cliente"
                                 value={viaje.id_cliente}
-                                options={clientes.map(c => ({ label: c.nombre, value: c.id }))}
+                                options={clientes.map(c => ({ label: c.empresa, value: c.id }))}
                                 onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
                                 placeholder="Selecciona un cliente"
                                 required
