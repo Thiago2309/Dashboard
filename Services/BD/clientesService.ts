@@ -45,6 +45,13 @@ export const fetchClientes = async (): Promise<Cliente[]> => {
     return data || [];
 };
 
+// Para las Notas
+export const fetchClientesNotes = async (): Promise<{ id: number; empresa: string }[]> => {
+    const { data, error } = await supabase.from('clientes').select('id, empresa').eq('estatus', 1); // solo clientes Activos
+    if (error) throw error;
+    return data || [];
+};
+
 // Crear un nuevo registro de Cliente
 export const createCliente = async (cliente: Omit<Cliente, 'id'>): Promise<Cliente> => {
     const { data, error } = await supabase

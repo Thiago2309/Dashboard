@@ -8,9 +8,10 @@ import { Toast } from 'primereact/toast';
 import { fetchViajes, fetchProveedores, createGasto, Gasto } from '../../../../Services/BD/gastoService';
 import { TabPanel, TabView } from 'primereact/tabview';
 import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, fetchOperadores, Combustible } from '../../../../Services/BD/combustibleService';
-import { fetchClientes, createCliente, updateCliente, Cliente } from '../../../../Services/BD/clientesService';
+import { fetchClientesNotes, createCliente, updateCliente, Cliente } from '../../../../Services/BD/clientesService';
 import {createViaje, updateViaje, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, Viaje } from '../../../../Services/BD/viajeService';
 import { getUserRoleIdFromLocalStorage } from '@/Services/BD/userService';
+import { RadioButton } from 'primereact/radiobutton';
 
 const userRoleId = getUserRoleIdFromLocalStorage();
 const isAlmacen = userRoleId === 4;
@@ -70,7 +71,7 @@ const FormularioNotaViaje = () => {
       id_m3: null,
       caphrsviajes: null,
   });
-  const [clientes, setClientes] = useState<{ id?: number; nombre: string }[]>([]);
+  const [clientes, setClientes] = useState<{ id?: number; empresa: string }[]>([]);
   const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
   const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
   const [m3, setM3] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
@@ -79,7 +80,7 @@ const FormularioNotaViaje = () => {
 
   // Cargar datos iniciales (clientes, precios, materiales, m3)
   useEffect(() => {
-      fetchClientes().then(setClientes);
+      fetchClientesNotes().then(setClientes);
       fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
       fetchMateriales().then(setMateriales);
       fetchM3().then(setM3);
@@ -196,7 +197,7 @@ const FormularioNotaViaje = () => {
                           <Dropdown
                               id="id_cliente"
                               value={viaje.id_cliente}
-                              options={clientes.map(c => ({ label: c.nombre, value: c.id }))}
+                              options={clientes.map(c => ({ label: c.empresa, value: c.id }))}
                               onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
                               placeholder="Selecciona un cliente"
                               required
@@ -519,67 +520,232 @@ const FormularioCombustible = () => {
 
 // Componente del Formulario de Clientes
 const FormularioCliente = () => {
-  const [cliente, setCliente] = useState<Cliente>({
-      nombre: '',
+    const [cliente, setCliente] = useState<Cliente>({
+      empresa: '',
       contacto: '',
-  });
-  const [submitted, setSubmitted] = useState(false);
-  const toast = useRef<Toast>(null);
-
-  // Guardar o actualizar un cliente
-  const saveCliente = async () => {
+      telefono: '',
+      tipo_cliente: undefined,
+      rfc: '',
+      direccion: '',
+      metodo_pago: undefined,
+      uso_cfdi: '',
+      regimen_fiscal: '',
+      obra: '',
+      estatus: 1 // Valor por defecto
+    });
+    
+    const [submitted, setSubmitted] = useState(false);
+    const toast = useRef<Toast>(null);
+  
+    // Opciones para los dropdowns/selects
+    const TipoCliente = [
+        { label: 'Efectivo', value: 'Efectivo' },
+        { label: 'Facturado', value: 'Facturado' }
+    ];
+  
+    const metodoPagoOptions = [
+      { label: 'Efectivo', value: 'Efectivo' },
+      { label: 'Transferencia', value: 'Transferencia' },
+    ];
+  
+    const usoCFDIOptions = [
+      { label: 'G01 - Adquisición de mercancías', value: 'G01' },
+      { label: 'G03 - Gastos en general', value: 'G03' },
+      { label: 'P01 - Por definir', value: 'P01' }
+      // Agrega más opciones según sea necesario
+    ];
+  
+    const regimenFiscalOptions = [
+      { label: '601 - General de Ley Personas Morales', value: '601' },
+      { label: '603 - Personas Morales con Fines no Lucrativos', value: '603' },
+      { label: '605 - Sueldos y Salarios', value: '605' }
+      // Agrega más opciones según sea necesario
+    ];
+  
+    // Guardar o actualizar un cliente
+    const saveCliente = async () => {
       setSubmitted(true);
-
-      if (cliente.nombre.trim() && cliente.contacto.trim()) {
-          try {
-              if (cliente.id) {
-                  const updatedCliente = await updateCliente(cliente);
-                  toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Cliente actualizado', life: 3000 });
-              } else {
-                  const newCliente = await createCliente(cliente);
-                  toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Cliente creado', life: 3000 });
-              }
-              setCliente({
-                  nombre: '',
-                  contacto: '',
-              });
-              setSubmitted(false);
-          } catch (error) {
-              toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el cliente', life: 3000 });
+  
+      // Validar campos obligatorios
+      if (cliente.empresa.trim() && cliente.contacto.trim()) {
+        try {
+          if (cliente.id) {
+            const updatedCliente = await updateCliente(cliente);
+            toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Cliente actualizado', life: 3000 });
+          } else {
+            const newCliente = await createCliente(cliente);
+            toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Cliente creado', life: 3000 });
           }
+          // Resetear formulario después de guardar
+          setCliente({
+            empresa: '',
+            contacto: '',
+            telefono: '',
+            tipo_cliente: undefined,
+            rfc: '',
+            direccion: '',
+            metodo_pago: undefined,
+            uso_cfdi: '',
+            regimen_fiscal: '',
+            obra: '',
+            estatus: 1
+          });
+          setSubmitted(false);
+        } catch (error) {
+          toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el cliente', life: 3000 });
+        }
       }
-  };
+    };
 
-  return (
-      <div className="card p-4">
-          <Toast ref={toast} />
-          <div className="p-fluid">
-              <div className="field">
-                  <label htmlFor="nombre">Nombre</label><span style={{ color: 'red' }}> *</span>
-                  <InputText
-                      id="nombre"
-                      value={cliente.nombre}
-                      onChange={(e) => setCliente({ ...cliente, nombre: e.target.value })}
-                      required
-                      className={submitted && !cliente.nombre ? 'p-invalid' : ''}
-                  />
-                  {submitted && !cliente.nombre && <small className="p-invalid">Nombre es requerido.</small>}
-              </div>
-              <div className="field">
-                  <label htmlFor="contacto">Contacto</label><span style={{ color: 'red' }}> *</span>
-                  <InputText
-                      id="contacto"
-                      value={cliente.contacto}
-                      onChange={(e) => setCliente({ ...cliente, contacto: e.target.value })}
-                      required
-                      className={submitted && !cliente.contacto ? 'p-invalid' : ''}
-                  />
-                  {submitted && !cliente.contacto && <small className="p-invalid">Contacto es requerido.</small>}
-              </div>
-          </div>
-          <div className="flex justify-content-end mt-4">
-              <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveCliente} />
-          </div>
-      </div>
-  );
+    return (
+        <div className="card p-4">
+            <Toast ref={toast} />
+            <div className="p-fluid">
+                <div className="field">
+                    <label htmlFor="empresa">Empresa</label><span style={{ color: 'red' }}> *</span>
+                    <InputText
+                    id="empresa"
+                    value={cliente.empresa}
+                    onChange={(e) => setCliente({ ...cliente, empresa: e.target.value })}
+                    required
+                    className={submitted && !cliente.empresa ? 'p-invalid' : ''}
+                    />
+                    {submitted && !cliente.empresa && <small className="p-invalid">Empresa es requerida.</small>}
+                </div>
+    
+                <div className="field">
+                    <label htmlFor="contacto">Contacto</label><span style={{ color: 'red' }}> *</span>
+                    <InputText
+                    id="contacto"
+                    value={cliente.contacto}
+                    onChange={(e) => setCliente({ ...cliente, contacto: e.target.value })}
+                    required
+                    className={submitted && !cliente.contacto ? 'p-invalid' : ''}
+                    />
+                    {submitted && !cliente.contacto && <small className="p-invalid">Contacto es requerido.</small>}
+                </div>
+    
+                <div className="field">
+                    <label htmlFor="telefono">Teléfono</label>
+                    <InputText
+                    id="telefono"
+                    value={cliente.telefono}
+                    onChange={(e) => setCliente({ ...cliente, telefono: e.target.value })}
+                    />
+                </div>
+
+                <div className="field">
+                    <label htmlFor="direccion">Dirección</label><span style={{ color: 'red' }}> *</span>
+                    <InputText
+                    id="direccion"
+                    value={cliente.direccion}
+                    onChange={(e) => setCliente({ ...cliente, direccion: e.target.value })}
+                    />
+                </div>
+    
+            <div className="field">
+                <label htmlFor="tipo_cliente">Tipo de Cliente</label><span style={{ color: 'red' }}> *</span>
+                <Dropdown
+                id="tipo_cliente"
+                value={cliente.tipo_cliente}
+                options={TipoCliente}
+                onChange={(e) => setCliente({ ...cliente, tipo_cliente: e.value })}
+                placeholder="Selecciona un tipo"
+                />
+            </div>
+    
+            {/* aqui */}
+            {cliente.tipo_cliente === 'Facturado' && (
+                <>
+                    <div className="field">
+                        <label htmlFor="rfc">RFC</label><span style={{ color: 'red' }}> *</span>
+                        <InputText
+                            id="rfc"
+                            value={cliente.rfc || ''}
+                            maxLength={13} // Solo permite 13 caracteres
+                            onChange={(e) => setCliente({ ...cliente, rfc: e.target.value })}
+                            className={submitted && cliente.tipo_cliente === 'Facturado' && !cliente.rfc ? 'p-invalid' : ''}
+                            placeholder="Solo es permitido 13 caracteres"
+                        />
+                        {submitted && cliente.tipo_cliente === 'Facturado' && !cliente.rfc && (
+                            <small className="p-invalid">RFC es requerido para facturación</small>
+                        )}
+                    </div>
+
+                    <div className="field">
+                        <label htmlFor="uso_cfdi">Uso CFDI</label><span style={{ color: 'red' }}> *</span>
+                        <Dropdown
+                            id="uso_cfdi"
+                            value={cliente.uso_cfdi}
+                            options={usoCFDIOptions}
+                            onChange={(e) => setCliente({ ...cliente, uso_cfdi: e.value })}
+                            placeholder="Seleccione uso CFDI"
+                        />
+                    </div>
+
+                    <div className="field">
+                        <label htmlFor="regimen_fiscal">Régimen Fiscal</label><span style={{ color: 'red' }}> *</span>
+                        <Dropdown
+                            id="regimen_fiscal"
+                            value={cliente.regimen_fiscal}
+                            options={regimenFiscalOptions}
+                            onChange={(e) => setCliente({ ...cliente, regimen_fiscal: e.value })}
+                            placeholder="Seleccione uso de Regimen Fiscal"
+                        />
+                    </div>
+                </>
+            )}
+
+            <div className="field">
+                <label htmlFor="metodo_pago">Método de Pago</label><span style={{ color: 'red' }}> *</span>
+                <Dropdown
+                id="metodo_pago"
+                value={cliente.metodo_pago}
+                options={metodoPagoOptions}
+                onChange={(e) => setCliente({ ...cliente, metodo_pago: e.value })}
+                placeholder="Selecciona un método"
+                />
+            </div>
+    
+            <div className="field">
+                <label htmlFor="obra">Obra</label><span style={{ color: 'red' }}> *</span>
+                <InputText
+                id="obra"
+                value={cliente.obra}
+                onChange={(e) => setCliente({ ...cliente, obra: e.target.value })}
+                />
+            </div>
+    
+            <div className="field">
+                <label htmlFor="estatus">Estatus</label><span style={{ color: 'red' }}> *</span>
+                <div className="flex align-items-center">
+                    <div className="flex align-items-center mr-3">
+                        <RadioButton
+                            inputId="estatus_activo"
+                            name="estatus"
+                            value={1}
+                            onChange={(e) => setCliente({ ...cliente, estatus: 1 })}
+                            checked={cliente.estatus === 1}
+                        />
+                        <label htmlFor="estatus_activo" className="ml-2">Activo</label>
+                    </div>
+                    {/* <div className="flex align-items-center">
+                        <RadioButton
+                            inputId="estatus_inactivo"
+                            name="estatus"
+                            value={0}
+                            onChange={(e) => setCliente({ ...cliente, estatus: 0 })}
+                            checked={cliente.estatus === 0}
+                        />
+                        <label htmlFor="estatus_inactivo" className="ml-2">Inactivo</label>
+                    </div> */}
+                </div>
+            </div>
+            </div>
+    
+            <div className="flex justify-content-end mt-4">
+            <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveCliente} />
+            </div>
+        </div>
+    );
 };
