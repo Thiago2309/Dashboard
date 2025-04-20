@@ -1,4 +1,5 @@
 import { supabase } from '../superbase.service';
+import { crearCuentaInicialParaCliente } from './cuentasPorCobrarService';
 
 export interface Cliente {
     id?: number;
@@ -63,6 +64,14 @@ export const createCliente = async (cliente: Omit<Cliente, 'id'>): Promise<Clien
     if (error) {
         console.error('Error creating Cliente:', error);
         throw error;
+    }
+
+    // Crear cuenta por cobrar automáticamente
+    try {
+        await crearCuentaInicialParaCliente(data.id, data.empresa);
+    } catch (error) {
+        console.error('Error al crear cuenta inicial:', error);
+        // Puedes decidir si quieres lanzar el error o solo loguearlo
     }
 
     return transformClienteData(data);

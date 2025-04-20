@@ -129,3 +129,22 @@ export const fetchM3 = async (): Promise<{ id: number; nombre: string; metros_cu
     if (error) throw error;
     return data || [];
 };
+
+//obtener los viajes de los clientes cargados, para el resuemn de CXC
+export const fetchViajesPorCliente = async (id_cliente: number): Promise<any[]> => {
+    const { data, error } = await supabase
+        .from('viajes')
+        .select(`
+            id,
+            fecha,
+            folio_bco,
+            folio,
+            caphrsviajes
+        `)
+        .eq('id_cliente', id_cliente)
+        .order('fecha', { ascending: false });
+
+    if (error) throw error;
+
+    return data || [];
+};
