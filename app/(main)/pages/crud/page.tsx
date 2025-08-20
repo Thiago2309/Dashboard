@@ -9,7 +9,7 @@ import { Toolbar } from 'primereact/toolbar';
 import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3 } from '../../../../Services/BD/viajeService';
+import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -20,7 +20,9 @@ const Crud = () => {
         id_precio_origen_destino: null,
         id_material: null,
         id_m3: null,
-        caphrsviajes: null
+        caphrsviajes: null,
+        id_operador: null,
+        operador_nombre: '',
     };
 
     const [viajes, setViajes] = useState<Viaje[]>([]);
@@ -39,6 +41,7 @@ const Crud = () => {
     const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
+    const [operadores, setOperadores] = useState<{id: number; nombre: string}[]>([]);
 
     // Función para calcular el total de horas de viaje
     const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
@@ -53,13 +56,14 @@ const Crud = () => {
         return viajes.length;
     };
 
-
+    // useEffect principal:
     useEffect(() => {
         fetchViajes().then(setViajes);
         fetchClientes().then(setClientes);
         fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
         fetchMateriales().then(setMateriales);
         fetchM3().then(setM3Options);
+        fetchOperadores().then(setOperadores);
     }, []);
 
     useEffect(() => {
@@ -128,6 +132,7 @@ const Crud = () => {
                         id_material: viaje.id_material,
                         id_m3: viaje.id_m3,
                         caphrsviajes,
+                        id_operador: viaje.id_operador
                     };
     
                     console.log('Objeto enviado a Supabase:', { ...viajeLimpio, id: viaje.id }); // Verifica que el id esté incluido
@@ -135,11 +140,11 @@ const Crud = () => {
                     if (viaje.id) {
                         const updatedViaje = await updateViaje({ ...viajeLimpio, id: viaje.id });
                         setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
-                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Actualizado', life: 3000 });
                     } else {
                         const newViaje = await createViaje(viajeLimpio);
                         setViajes([...viajes, newViaje]);
-                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Creado', life: 3000 });
                     }
                     fetchViajes().then(setViajes); //MANDA A LLAMAR LA TABLA
                     setViajeDialog(false);
@@ -261,6 +266,15 @@ const Crud = () => {
         );
     };
 
+    const operadorBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Operador</span>
+                {rowData.operador_nombre ?? '-'}
+            </>
+        );
+    };
+
     const origenBodyTemplate = (rowData: Viaje) => {
         return (
             <>
@@ -351,7 +365,7 @@ const Crud = () => {
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
                     <div>
-                        <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
+                        <span className="block text-500 font-medium mb-3">Sub Total</span>
                         <div className="text-900 font-medium text-xl">
                             $ {calcularTotalHorasViajes(viajes).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Pesos
                         </div>
@@ -359,8 +373,8 @@ const Crud = () => {
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
                             <i className="pi pi-clock text-black-500 text-xl" />
                         </div>
-                    </div>
-                    <span className="text-500">Total de horas de viaje</span>
+                    </div>Gestión de Notas de Viajes
+                    <span className="text-500">Total sin IVA</span>
                 </div>
             </div>
 
@@ -407,15 +421,16 @@ const Crud = () => {
                         <Column field="folio_bco" header="Folio Banco" sortable body={folioBcoBodyTemplate}></Column>
                         <Column field="folio" header="Folio" sortable body={folioBodyTemplate}></Column>
                         <Column field="cliente_nombre" header="Cliente" sortable body={clienteBodyTemplate}></Column>
+                        <Column field="operador_nombre" header="Operador" sortable body={operadorBodyTemplate}></Column>
                         <Column field="origen" header="Origen" sortable body={origenBodyTemplate}></Column>
                         <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
                         <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
                         <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
-                        <Column field="caphrsviajes" header="Cap. Hrs Viajes" sortable body={caphrsviajesBodyTemplate}></Column>
-                        <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column field="caphrsviajes" header="Precio" sortable body={caphrsviajesBodyTemplate}></Column>
+                        <Column header="Acción" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
                         <div className="field">
                             <label htmlFor="fecha">Fecha</label>
                             <Calendar
@@ -503,6 +518,18 @@ const Crud = () => {
                                 className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
                             />
                             {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
+                        </div>
+                        <div className="operador">
+                            <label htmlFor="id_operador">Operador</label>
+                            <Dropdown
+                                id="id_operador"
+                                value={viaje.id_operador}
+                                options={operadores.map(op => ({ label: op.nombre, value: op.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_operador: e.value })}
+                                placeholder="Selecciona un operador"
+                                className={submitted && !viaje.id_operador ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                         </div>
                         <div className="field">
                             {viaje.id && ( // Solo muestra el campo si viaje.id existe (modo update)

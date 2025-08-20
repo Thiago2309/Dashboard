@@ -8,6 +8,8 @@ import CombustibleModule from './combustible';
 import CajaNegraModule from './cajanegra';
 import OrigenDestino from './PrecioOriengenDestino';
 import ClientesCrud from './clientes';
+import OperadoresCrud from './operador';
+import InvitadosCrud from './invitados';
 
 const TableModule = () => {
     const [activeModule, setActiveModule] = useState('Viajes');
@@ -26,6 +28,10 @@ const TableModule = () => {
                 return <OrigenDestino />;
             case 'Clientes':
                     return <ClientesCrud />;
+            case 'Operadores':
+                    return <OperadoresCrud />;
+            case 'Invitados':
+                return <InvitadosCrud />;
             default:
                 return <div>Selecciona un módulo</div>;
         }
@@ -72,6 +78,18 @@ const TableModule = () => {
                             onClick={() => setActiveModule('Clientes')}
                         >
                             Clientes
+                        </div>
+                        <div
+                            style={activeModule === 'Operadores' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Operadores')}
+                        >
+                            Operadores
+                        </div>
+                        <div
+                            style={activeModule === 'Invitados' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Invitados')}
+                        >
+                            Invitados
                         </div>
                     </div>
                     <div style={styles.tableContainer}>

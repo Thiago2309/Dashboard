@@ -70,10 +70,12 @@ const FormularioNotaViaje = () => {
       id_material: null,
       id_m3: null,
       caphrsviajes: null,
+      id_operador: null,
   });
   const [clientes, setClientes] = useState<{ id?: number; empresa: string }[]>([]);
   const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
   const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
+  const [operadores, setOperadores] = useState<{ id: number; nombre: string }[]>([]);
   const [m3, setM3] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
   const [submitted, setSubmitted] = useState(false);
   const toast = useRef<Toast>(null);
@@ -84,6 +86,7 @@ const FormularioNotaViaje = () => {
       fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
       fetchMateriales().then(setMateriales);
       fetchM3().then(setM3);
+      fetchOperadores().then(setOperadores);
   }, []);
 
   // Guardar o actualizar un viaje
@@ -97,7 +100,8 @@ const FormularioNotaViaje = () => {
         viaje.folio &&
         viaje.id_precio_origen_destino !== null &&
         viaje.id_material !== null &&
-        viaje.id_m3 !== null
+        viaje.id_m3 !== null && 
+        viaje.id_operador !== null
     ) {
         try {
             // Obtener el precio_unidad y metros_cubicos
@@ -140,6 +144,7 @@ const FormularioNotaViaje = () => {
                     id_material: null,
                     id_m3: null,
                     caphrsviajes: null,
+                    id_operador: null,
                 });
                 setSubmitted(false);
             } else {
@@ -247,6 +252,19 @@ const FormularioNotaViaje = () => {
                               className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
                           />
                           {submitted && !viaje.id_m3 && <small className="p-invalid">Metros Cúbicos es requerido.</small>}
+                      </div>
+                      <div className="operador">
+                            <label htmlFor="id_operador">Operador</label><span style={{ color: 'red' }}> *</span>
+                            <Dropdown
+                                id="id_operador"
+                                value={viaje.id_operador}
+                                options={operadores.map(o => ({ label: o.nombre, value: o.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_operador: e.value })}
+                                placeholder="Selecciona un operador"
+                                required
+                                className={submitted && !viaje.id_operador ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                       </div>
                   </div>
               </TabPanel>
