@@ -18,6 +18,7 @@ const GastosCrud = () => {
         id_proveedor: null,
         refaccion: '',
         importe: null,
+        descripcion: ''
     };
 
     const [gastos, setGastos] = useState<Gasto[]>([]);
@@ -212,6 +213,15 @@ const GastosCrud = () => {
         );
     };
 
+    const descripcionBodyTemplate = (rowData: Gasto) => {
+        return (
+            <>
+                <span className="p-column-title">descripcion</span>
+                {rowData.descripcion}
+            </>
+        );
+    };
+
     const importeBodyTemplate = (rowData: Gasto) => {
         return (
             <>
@@ -304,6 +314,7 @@ const GastosCrud = () => {
                         <Column field="viaje_folio" header="Viaje" sortable body={viajeBodyTemplate}></Column>
                         <Column field="proveedor_nombre" header="Proveedor" sortable body={proveedorBodyTemplate}></Column>
                         <Column field="refaccion" header="Refacción" sortable body={refaccionBodyTemplate}></Column>
+                        <Column field="descripcion" header="descripcion" sortable body={descripcionBodyTemplate}></Column>
                         <Column field="importe" header="Importe" sortable body={importeBodyTemplate}></Column>
                         <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
@@ -313,8 +324,22 @@ const GastosCrud = () => {
                             <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
                             <Calendar
                                 id="fecha"
-                                value={gasto.fecha ? new Date(gasto.fecha) : null}
-                                onChange={(e) => setGasto({ ...gasto, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                                value={
+                                    gasto.fecha
+                                        ? (() => {
+                                            const [year, month, day] = gasto.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setGasto({
+                                        ...gasto,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
                                 dateFormat="yy-mm-dd"
                                 showIcon
                                 required
@@ -355,6 +380,17 @@ const GastosCrud = () => {
                                 className={submitted && !gasto.refaccion ? 'p-invalid' : ''}
                             />
                             {submitted && !gasto.refaccion && <small className="p-invalid">Refacción es requerido.</small>}
+                        </div>
+                        <div className="field">
+                            <label htmlFor="descripcion">descripcion</label><span style={{ color: 'red' }}> *</span>
+                            <InputText
+                                id="descripcion"
+                                value={gasto.descripcion}
+                                onChange={(e) => setGasto({ ...gasto, descripcion: e.target.value })}
+                                required
+                                className={submitted && !gasto.descripcion ? 'p-invalid' : ''}
+                            />
+                            {submitted && !gasto.descripcion && <small className="p-invalid">descripcion es requerido.</small>}
                         </div>
                         <div className="field">
                             <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>

@@ -15,6 +15,8 @@ export interface Viaje {
     id_m3: number | null;
     m3_nombre?: string;
     caphrsviajes: number | null;
+    id_operador?: number | null;
+    operador_nombre?: string; // Hacer opcional
 }
 
 // Helper function to transform Supabase response to Viaje interface
@@ -33,6 +35,8 @@ const transformViajeData = (data: any): Viaje => ({
     id_m3: data.id_m3,
     m3_nombre: data.m3?.m3_nombre || '',
     caphrsviajes: data.caphrsviajes,
+    id_operador: data.id_operador,
+    operador_nombre: data.operador?.nombre || ''
 });
 
 export const fetchViajes = async (): Promise<Viaje[]> => {
@@ -74,7 +78,8 @@ export const updateViaje = async (viaje: Viaje): Promise<Viaje> => {
             id_precio_origen_destino: viaje.id_precio_origen_destino,
             id_material: viaje.id_material,
             id_m3: viaje.id_m3,
-            caphrsviajes: viaje.caphrsviajes
+            caphrsviajes: viaje.caphrsviajes,
+            id_operador: viaje.id_operador,
         })
         .eq('id', viaje.id)
         .select('*')
@@ -101,8 +106,8 @@ export const deleteViaje = async (id: number): Promise<void> => {
 };
 
 // New helper functions to fetch dropdown options
-export const fetchClientes = async (): Promise<{ id: number; nombre: string }[]> => {
-    const { data, error } = await supabase.from('clientes').select('id, nombre');
+export const fetchClientes = async (): Promise<{ id: number; empresa: string }[]> => {
+    const { data, error } = await supabase.from('clientes').select('id, empresa').eq('estatus', 1); // solo clientes Activos
     if (error) throw error;
     return data || [];
 };
@@ -126,6 +131,33 @@ export const fetchMateriales = async (): Promise<{ id: number; nombre: string }[
 
 export const fetchM3 = async (): Promise<{ id: number; nombre: string; metros_cubicos: number }[]> => {
     const { data, error } = await supabase.from('m3').select('id, nombre, metros_cubicos');
+    if (error) throw error;
+    return data || [];
+};
+
+//obtener los viajes de los clientes cargados, para el resuemn de CXC
+export const fetchViajesPorCliente = async (id_cliente: number): Promise<any[]> => {
+    const { data, error } = await supabase
+        .from('viajes')
+        .select(`
+            id,
+            fecha,
+            folio_bco,
+            folio,
+            caphrsviajes
+        `)
+        .eq('id_cliente', id_cliente)
+        .order('fecha', { ascending: false });
+
+    if (error) throw error;
+
+    return data || [];
+};
+
+export const fetchOperadores = async (): Promise<{id: number; nombre: string}[]> => {
+    const { data, error } = await supabase
+        .from('operador')
+        .select('id, nombre');
     if (error) throw error;
     return data || [];
 };

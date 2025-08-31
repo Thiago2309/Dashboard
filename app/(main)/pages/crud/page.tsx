@@ -9,7 +9,8 @@ import { Toolbar } from 'primereact/toolbar';
 import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3 } from '../../../../Services/BD/viajeService';
+import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
+import { DataTableFilterMeta } from 'primereact/datatable';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -20,7 +21,9 @@ const Crud = () => {
         id_precio_origen_destino: null,
         id_material: null,
         id_m3: null,
-        caphrsviajes: null
+        caphrsviajes: null,
+        id_operador: null,
+        operador_nombre: '',
     };
 
     const [viajes, setViajes] = useState<Viaje[]>([]);
@@ -30,15 +33,18 @@ const Crud = () => {
     const [viaje, setViaje] = useState<Viaje>(emptyViaje);
     const [selectedViajes, setSelectedViajes] = useState<Viaje[]>([]);
     const [submitted, setSubmitted] = useState(false);
-    const [globalFilter, setGlobalFilter] = useState('');
+    const [filters, setFilters] = useState<DataTableFilterMeta>({
+            global: { value: null, matchMode: 'contains' as const }
+        });
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
 
     // State for dropdown options
-    const [clientes, setClientes] = useState<{ id: number; nombre: string }[]>([]);
+    const [clientes, setClientes] = useState<{ id: number; empresa: string }[]>([]);
     const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
+    const [operadores, setOperadores] = useState<{id: number; nombre: string}[]>([]);
 
     // Función para calcular el total de horas de viaje
     const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
@@ -53,13 +59,14 @@ const Crud = () => {
         return viajes.length;
     };
 
-
+    // useEffect principal:
     useEffect(() => {
         fetchViajes().then(setViajes);
         fetchClientes().then(setClientes);
         fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
         fetchMateriales().then(setMateriales);
         fetchM3().then(setM3Options);
+        fetchOperadores().then(setOperadores);
     }, []);
 
     useEffect(() => {
@@ -128,6 +135,7 @@ const Crud = () => {
                         id_material: viaje.id_material,
                         id_m3: viaje.id_m3,
                         caphrsviajes,
+                        id_operador: viaje.id_operador
                     };
     
                     console.log('Objeto enviado a Supabase:', { ...viajeLimpio, id: viaje.id }); // Verifica que el id esté incluido
@@ -135,11 +143,11 @@ const Crud = () => {
                     if (viaje.id) {
                         const updatedViaje = await updateViaje({ ...viajeLimpio, id: viaje.id });
                         setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
-                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Updated', life: 3000 });
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Actualizado', life: 3000 });
                     } else {
                         const newViaje = await createViaje(viajeLimpio);
                         setViajes([...viajes, newViaje]);
-                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Created', life: 3000 });
+                        toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Creado', life: 3000 });
                     }
                     fetchViajes().then(setViajes); //MANDA A LLAMAR LA TABLA
                     setViajeDialog(false);
@@ -238,7 +246,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Folio Banco</span>
-                {rowData.folio_bco}
+                {rowData.folio_bco ?? '-'}
             </>
         );
     };
@@ -247,7 +255,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Folio</span>
-                {rowData.folio}
+                {rowData.folio ?? '-'}
             </>
         );
     };
@@ -257,6 +265,15 @@ const Crud = () => {
             <>
                 <span className="p-column-title">Cliente</span>
                 {rowData.cliente_nombre}
+            </>
+        );
+    };
+
+    const operadorBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Operador</span>
+                {rowData.operador_nombre ?? '-'}
             </>
         );
     };
@@ -301,6 +318,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Cap. Hrs Viajes</span>
+                ${' '}
                 {rowData.caphrsviajes}
             </>
         );
@@ -320,7 +338,16 @@ const Crud = () => {
             <h5 className="m-0">Gestión de Viajes</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
+                <InputText
+                    type="search"
+                    onInput={(e) =>
+                        setFilters({
+                            ...filters,
+                            global: { value: e.currentTarget.value, matchMode: 'contains' }
+                        })
+                    }
+                    placeholder="Buscar..."
+                />
             </span>
         </div>
     );
@@ -350,15 +377,17 @@ const Crud = () => {
             <div className="col-12 lg:col-6 xl:col-3">
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
-                        <div>
-                            <span className="block text-500 font-medium mb-3">Total de HrsViajes</span>
-                            <div className="text-900 font-medium text-xl">{calcularTotalHorasViajes(viajes)} Pesos</div>
+                    <div>
+                        <span className="block text-500 font-medium mb-3">Sub Total</span>
+                        <div className="text-900 font-medium text-xl">
+                            $ {calcularTotalHorasViajes(viajes).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} Pesos
                         </div>
+                    </div>
                         <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
                             <i className="pi pi-clock text-black-500 text-xl" />
                         </div>
-                    </div>
-                    <span className="text-500">Total de horas de viaje</span>
+                    </div>Gestión de Notas de Viajes
+                    <span className="text-500">Total sin IVA</span>
                 </div>
             </div>
 
@@ -394,7 +423,8 @@ const Crud = () => {
                         className="datatable-responsive"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} viajes"
-                        globalFilter={globalFilter}
+                        filters={filters} // PARA EL DE BUSQUEDA
+                        filterDisplay="menu"
                         emptyMessage="No viajes found."
                         header={header}
                         responsiveLayout="scroll"
@@ -405,23 +435,38 @@ const Crud = () => {
                         <Column field="folio_bco" header="Folio Banco" sortable body={folioBcoBodyTemplate}></Column>
                         <Column field="folio" header="Folio" sortable body={folioBodyTemplate}></Column>
                         <Column field="cliente_nombre" header="Cliente" sortable body={clienteBodyTemplate}></Column>
+                        <Column field="operador_nombre" header="Operador" sortable body={operadorBodyTemplate}></Column>
                         <Column field="origen" header="Origen" sortable body={origenBodyTemplate}></Column>
                         <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
                         <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
                         <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
-                        <Column field="caphrsviajes" header="Cap. Hrs Viajes" sortable body={caphrsviajesBodyTemplate}></Column>
-                        <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column field="caphrsviajes" header="Precio" sortable body={caphrsviajesBodyTemplate}></Column>
+                        <Column header="Acción" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje Details" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={viajeDialog} style={{ width: '550px' }} header="Viaje" modal className="p-fluid" footer={viajeDialogFooter} onHide={hideDialog}>
                         <div className="field">
                             <label htmlFor="fecha">Fecha</label>
                             <Calendar
                                 id="fecha"
-                                value={viaje.fecha ? new Date(viaje.fecha) : null} // Convert string to Date object
-                                onChange={(e) => setViaje({ ...viaje, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })} // Convert back to YYYY-MM-DD string
-                                dateFormat="yy-mm-dd" // Format as YYYY-MM-DD
-                                showIcon // Displays a calendar icon
+                                value={
+                                    viaje.fecha
+                                        ? (() => {
+                                            const [year, month, day] = viaje.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setViaje({
+                                        ...viaje,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
+                                dateFormat="yy-mm-dd"
+                                showIcon
                                 required
                                 className={submitted && !viaje.fecha ? 'p-invalid' : ''}
                             />
@@ -455,7 +500,7 @@ const Crud = () => {
                             <Dropdown
                                 id="id_cliente"
                                 value={viaje.id_cliente}
-                                options={clientes.map(c => ({ label: c.nombre, value: c.id }))}
+                                options={clientes.map(c => ({ label: c.empresa, value: c.id }))}
                                 onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
                                 placeholder="Selecciona un cliente"
                                 required
@@ -468,11 +513,20 @@ const Crud = () => {
                             <Dropdown
                                 id="id_precio_origen_destino"
                                 value={viaje.id_precio_origen_destino}
-                                options={preciosOrigenDestino.map(p => ({ label: p.label, value: p.id }))}
+                                options={preciosOrigenDestino.map(p => ({
+                                    label: `${p.label} - ($${p.precio_unidad?.toLocaleString('es-MX', { minimumFractionDigits: 2 }) ?? '0.00'})`,
+                                    value: p.id,
+                                    precio_unidad: p.precio_unidad
+                                }))}
                                 onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
                                 placeholder="Selecciona un origen-destino"
                                 required
                                 className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
+                                itemTemplate={(option) => (
+                                    <div>
+                                        <span>{option.label}</span>
+                                    </div>
+                                )}
                             />
                             {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen-Destino es requerido.</small>}
                         </div>
@@ -501,6 +555,18 @@ const Crud = () => {
                                 className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
                             />
                             {submitted && !viaje.id_m3 && <small className="p-invalid">M3 es requerido.</small>}
+                        </div>
+                        <div className="operador">
+                            <label htmlFor="id_operador">Operador</label>
+                            <Dropdown
+                                id="id_operador"
+                                value={viaje.id_operador}
+                                options={operadores.map(op => ({ label: op.nombre, value: op.id }))}
+                                onChange={(e) => setViaje({ ...viaje, id_operador: e.value })}
+                                placeholder="Selecciona un operador"
+                                className={submitted && !viaje.id_operador ? 'p-invalid' : ''}
+                            />
+                            {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                         </div>
                         <div className="field">
                             {viaje.id && ( // Solo muestra el campo si viaje.id existe (modo update)

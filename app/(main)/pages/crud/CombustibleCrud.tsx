@@ -146,7 +146,6 @@ const CombustibleCrud = () => {
         setSubmitted(true);
     
         if (
-            combustible.id_viaje !== null &&
             combustible.fecha &&
             combustible.id_operador !== null &&
             combustible.litros !== null &&
@@ -168,6 +167,7 @@ const CombustibleCrud = () => {
                 }
                 setCombustibleDialog(false);
                 setCombustible(emptyCombustible);
+                fetchCombustible().then(setCombustibles);
             } catch (error) {
                 toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error saving combustible', life: 3000 });
             }
@@ -257,7 +257,7 @@ const CombustibleCrud = () => {
         return (
             <>
                 <span className="p-column-title">Viaje</span>
-                {rowData.viaje_folio}
+                {rowData.viaje_folio ?? '-'}
             </>
         );
     };
@@ -425,11 +425,25 @@ const CombustibleCrud = () => {
 
                     <Dialog visible={combustibleDialog} style={{ width: '450px' }} header="Combustible Details" modal className="p-fluid" footer={combustibleDialogFooter} onHide={hideDialog}>
                         <div className="field">
-                            <label htmlFor="fecha">Fecha</label>
+                            <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
                             <Calendar
                                 id="fecha"
-                                value={combustible.fecha ? new Date(combustible.fecha) : null}
-                                onChange={(e) => setCombustible({ ...combustible, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                                value={
+                                    combustible.fecha
+                                        ? (() => {
+                                            const [year, month, day] = combustible.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setCombustible({
+                                        ...combustible,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
                                 dateFormat="yy-mm-dd"
                                 showIcon
                                 required
@@ -445,13 +459,10 @@ const CombustibleCrud = () => {
                                 options={viajes.map(v => ({ label: v.folio, value: v.id }))}
                                 onChange={(e) => setCombustible({ ...combustible, id_viaje: e.value })}
                                 placeholder="Selecciona un viaje"
-                                required
-                                className={submitted && !combustible.id_viaje ? 'p-invalid' : ''}
                             />
-                            {submitted && !combustible.id_viaje && <small className="p-invalid">Viaje es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="id_operador">Operador</label>
+                            <label htmlFor="id_operador">Operador</label><span style={{ color: 'red' }}> *</span>
                             <Dropdown
                                 id="id_operador"
                                 value={combustible.id_operador}
@@ -464,7 +475,7 @@ const CombustibleCrud = () => {
                             {submitted && !combustible.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="litros">Litros</label>
+                            <label htmlFor="litros">Litros</label><span style={{ color: 'red' }}> *</span>
                             <InputText
                                 id="litros"
                                 value={combustible.litros?.toString() || ''}
@@ -475,7 +486,7 @@ const CombustibleCrud = () => {
                             {submitted && !combustible.litros && <small className="p-invalid">Litros es requerido.</small>}
                         </div>
                         <div className="field">
-                            <label htmlFor="importe">Importe</label>
+                            <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
                             <InputText
                                 id="importe"
                                 value={combustible.importe?.toString() || ''}
@@ -492,7 +503,7 @@ const CombustibleCrud = () => {
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
                             {combustible && (
                                 <span>
-                                    Are you sure you want to delete <b>{combustible.viaje_folio}</b>?
+                                    Are you sure you want to delete <b>{combustible.id}</b>?
                                 </span>
                             )}
                         </div>

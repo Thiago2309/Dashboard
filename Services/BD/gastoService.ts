@@ -9,6 +9,7 @@ export interface Gasto {
     importe: number | null;
     viaje_folio?: string;
     proveedor_nombre?: string;
+    descripcion: string;
 }
 
 // Helper function to transform Supabase response to Gasto interface
@@ -19,6 +20,7 @@ const transformGastoData = (data: any): Gasto => ({
     id_proveedor: data.id_proveedor,
     refaccion: data.refaccion,
     importe: data.importe,
+    descripcion: data.descripcion,
     viaje_folio: data.viajes?.folio || '',
     proveedor_nombre: data.proveedores?.nombre || ''
 });
@@ -61,7 +63,8 @@ export const updateGasto = async (gasto: Gasto): Promise<Gasto> => {
             fecha: gasto.fecha,
             id_proveedor: gasto.id_proveedor,
             refaccion: gasto.refaccion,
-            importe: gasto.importe
+            importe: gasto.importe,
+            descripcion: gasto.descripcion
         })
         .eq('id', gasto.id)
         .select('*')
