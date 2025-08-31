@@ -313,8 +313,22 @@ const CajaChicaCrud = () => {
                             <label htmlFor="fecha">Fecha</label>
                             <Calendar
                                 id="fecha"
-                                value={cajaChica.fecha ? new Date(cajaChica.fecha) : null}
-                                onChange={(e) => setCajaChica({ ...cajaChica, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                                value={
+                                    cajaChica.fecha
+                                        ? (() => {
+                                            const [year, month, day] = cajaChica.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setCajaChica({
+                                        ...cajaChica,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
                                 dateFormat="yy-mm-dd"
                                 showIcon
                                 required

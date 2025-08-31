@@ -217,14 +217,23 @@ const FormularioNotaViaje = () => {
                       <div className="field">
                           <label htmlFor="id_precio_origen_destino">Origen - Destino</label><span style={{ color: 'red' }}> *</span>
                           <Dropdown
-                              id="id_precio_origen_destino"
-                              value={viaje.id_precio_origen_destino}
-                              options={preciosOrigenDestino.map(p => ({ label: p.label, value: p.id }))}
-                              onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
-                              placeholder="Selecciona un destino"
-                              required
-                              className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
-                          />
+                            id="id_precio_origen_destino"
+                            value={viaje.id_precio_origen_destino}
+                            options={preciosOrigenDestino.map(p => ({
+                                label: `${p.label} - ($${p.precio_unidad?.toLocaleString('es-MX', { minimumFractionDigits: 2 }) ?? '0.00'})`,
+                                value: p.id,
+                                precio_unidad: p.precio_unidad
+                            }))}
+                            onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
+                            placeholder="Selecciona un origen-destino"
+                            required
+                            className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
+                            itemTemplate={(option) => (
+                                <div>
+                                    <span>{option.label}</span>
+                                </div>
+                            )}
+                        />
                           {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen - Destino es requerido.</small>}
                       </div>
                       <div className="field">

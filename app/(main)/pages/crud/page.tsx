@@ -10,6 +10,7 @@ import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
+import { DataTableFilterMeta } from 'primereact/datatable';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -32,7 +33,9 @@ const Crud = () => {
     const [viaje, setViaje] = useState<Viaje>(emptyViaje);
     const [selectedViajes, setSelectedViajes] = useState<Viaje[]>([]);
     const [submitted, setSubmitted] = useState(false);
-    const [globalFilter, setGlobalFilter] = useState('');
+    const [filters, setFilters] = useState<DataTableFilterMeta>({
+            global: { value: null, matchMode: 'contains' as const }
+        });
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
 
@@ -315,6 +318,7 @@ const Crud = () => {
         return (
             <>
                 <span className="p-column-title">Cap. Hrs Viajes</span>
+                ${' '}
                 {rowData.caphrsviajes}
             </>
         );
@@ -334,7 +338,16 @@ const Crud = () => {
             <h5 className="m-0">Gestión de Viajes</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
+                <InputText
+                    type="search"
+                    onInput={(e) =>
+                        setFilters({
+                            ...filters,
+                            global: { value: e.currentTarget.value, matchMode: 'contains' }
+                        })
+                    }
+                    placeholder="Buscar..."
+                />
             </span>
         </div>
     );
@@ -410,7 +423,8 @@ const Crud = () => {
                         className="datatable-responsive"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} viajes"
-                        globalFilter={globalFilter}
+                        filters={filters} // PARA EL DE BUSQUEDA
+                        filterDisplay="menu"
                         emptyMessage="No viajes found."
                         header={header}
                         responsiveLayout="scroll"
@@ -435,10 +449,24 @@ const Crud = () => {
                             <label htmlFor="fecha">Fecha</label>
                             <Calendar
                                 id="fecha"
-                                value={viaje.fecha ? new Date(viaje.fecha) : null} // Convert string to Date object
-                                onChange={(e) => setViaje({ ...viaje, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })} // Convert back to YYYY-MM-DD string
-                                dateFormat="yy-mm-dd" // Format as YYYY-MM-DD
-                                showIcon // Displays a calendar icon
+                                value={
+                                    viaje.fecha
+                                        ? (() => {
+                                            const [year, month, day] = viaje.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setViaje({
+                                        ...viaje,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
+                                dateFormat="yy-mm-dd"
+                                showIcon
                                 required
                                 className={submitted && !viaje.fecha ? 'p-invalid' : ''}
                             />
@@ -485,11 +513,20 @@ const Crud = () => {
                             <Dropdown
                                 id="id_precio_origen_destino"
                                 value={viaje.id_precio_origen_destino}
-                                options={preciosOrigenDestino.map(p => ({ label: p.label, value: p.id }))}
+                                options={preciosOrigenDestino.map(p => ({
+                                    label: `${p.label} - ($${p.precio_unidad?.toLocaleString('es-MX', { minimumFractionDigits: 2 }) ?? '0.00'})`,
+                                    value: p.id,
+                                    precio_unidad: p.precio_unidad
+                                }))}
                                 onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
                                 placeholder="Selecciona un origen-destino"
                                 required
                                 className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
+                                itemTemplate={(option) => (
+                                    <div>
+                                        <span>{option.label}</span>
+                                    </div>
+                                )}
                             />
                             {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen-Destino es requerido.</small>}
                         </div>

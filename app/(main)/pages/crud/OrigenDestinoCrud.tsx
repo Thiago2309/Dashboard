@@ -13,7 +13,7 @@ const OrigenDestinoCrud = () => {
     let emptyOrigenDestino: OrigenDestino = {
         nombreorigen: '',
         nombredestino: '',
-        precio_unidad: '',
+        precio_unidad: 0,
     };
 
     const [origenDestinoList, setOrigenDestinoList] = useState<OrigenDestino[]>([]);
@@ -53,7 +53,7 @@ const OrigenDestinoCrud = () => {
     const saveOrigenDestino = async () => {
         setSubmitted(true);
     
-        if (origenDestino.nombreorigen.trim() && origenDestino.nombredestino.trim() && origenDestino.precio_unidad.trim()) {
+        if (origenDestino.nombreorigen.trim() && origenDestino.nombredestino.trim() && origenDestino.precio_unidad > 0) {
             try {
                 if (origenDestino.id) {
                     const updatedOrigenDestino = await updateOrigenDestino(origenDestino);
@@ -267,11 +267,16 @@ const OrigenDestinoCrud = () => {
                         <div className="field">
                             <label htmlFor="precio_unidad">Precio Unidad</label>
                             <InputText
-                                id="precio_unidad"
-                                value={origenDestino.precio_unidad} // Mantener como string
-                                onChange={(e) => setOrigenDestino({ ...origenDestino, precio_unidad: e.target.value })}
+                                id="Precio_Unidad"
+                                value={origenDestino.precio_unidad.toString()}  // Convertir a string para mostrar
+                                onChange={(e) => {
+                                    const value = e.target.value;
+                                    // Convertir a número, usar 0 si no es válido
+                                    const precio = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
+                                    setOrigenDestino({ ...origenDestino, precio_unidad: precio });
+                                }}
                                 required
-                                className={submitted && !origenDestino.precio_unidad ? 'p-invalid' : ''}
+                                className={submitted && origenDestino.precio_unidad <= 0 ? 'p-invalid' : ''}
                             />
                             {submitted && !origenDestino.precio_unidad && <small className="p-invalid">Precio es requerido.</small>}
                         </div>

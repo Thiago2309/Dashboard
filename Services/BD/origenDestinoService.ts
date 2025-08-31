@@ -4,7 +4,7 @@ export interface OrigenDestino {
     id?: number; // Opcional para nuevos registros
     nombreorigen: string;
     nombredestino: string;
-    precio_unidad: string;
+    precio_unidad: number;
 }
 
 // Helper function to transform Supabase response to OrigenDestino interface

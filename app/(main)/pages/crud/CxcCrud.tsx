@@ -181,7 +181,9 @@ const CxcCrud = () => {
     };
 
     const fechaBodyTemplate = (rowData: CuentaPorCobrar) => {
-        return new Date(rowData.fecha).toLocaleDateString('es-MX');
+        if (!rowData.fecha) return '-';
+        const [year, month, day] = rowData.fecha.split('T')[0].split('-');
+        return `${day}-${month}-${year}`;
     };
 
     const fechaPagoBodyTemplate = (rowData: CuentaPorCobrar) => {
@@ -544,7 +546,16 @@ const CxcCrud = () => {
                                                         emptyMessage="No hay Abonos registrados"
                                                         className="p-datatable-sm"
                                                     >
-                                                        <Column field="fecha" header="Fecha" body={(row) => new Date(row.fecha).toLocaleString()} />
+                                                        <Column 
+                                                            field="fecha" 
+                                                            header="Fecha" 
+                                                            body={(row) => {
+                                                                if (!row.fecha) return '-';
+                                                                // Mostrar la fecha exactamente como viene, pero formateada a dd-mm-aaaa sin modificar la zona horaria
+                                                                const [year, month, day] = row.fecha.split('T')[0].split('-');
+                                                                return `${day}-${month}-${year}`;
+                                                            }} 
+                                                        />
                                                         <Column field="monto" header="Monto" body={(row) => formatCurrency(row.monto)} />
                                                         <Column field="metodo_pago" header="Método" />
                                                         <Column field="referencia" header="Descripción" body={(row) => row.referencia ? row.referencia : '-'}/>
@@ -574,7 +585,16 @@ const CxcCrud = () => {
                                                         className="p-datatable-sm"
                                                     >
                                                         <Column field="id" header="Id de Viaje" />
-                                                        <Column field="fecha" header="Fecha" body={(row) => new Date(row.fecha).toLocaleDateString('es-MX')} />
+                                                        <Column 
+                                                            field="fecha" 
+                                                            header="Fecha" 
+                                                            body={(row) => {
+                                                                if (!row.fecha) return '-';
+                                                                // Mostrar la fecha exactamente como viene, pero formateada a dd-mm-aaaa sin modificar la zona horaria
+                                                                const [year, month, day] = row.fecha.split('T')[0].split('-');
+                                                                return `${day}-${month}-${year}`;
+                                                            }} 
+                                                        />
                                                         <Column field="folio" header="Folio" />
                                                         <Column field="folio_bco" header="Folio BCO" />
                                                         <Column field="caphrsviajes" header="SubTotal de Deuda" body={(row) => formatCurrency(row.caphrsviajes || 0)} />

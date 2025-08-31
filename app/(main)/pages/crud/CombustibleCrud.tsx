@@ -428,8 +428,22 @@ const CombustibleCrud = () => {
                             <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
                             <Calendar
                                 id="fecha"
-                                value={combustible.fecha ? new Date(combustible.fecha) : null}
-                                onChange={(e) => setCombustible({ ...combustible, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                                value={
+                                    combustible.fecha
+                                        ? (() => {
+                                            const [year, month, day] = combustible.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setCombustible({
+                                        ...combustible,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
                                 dateFormat="yy-mm-dd"
                                 showIcon
                                 required

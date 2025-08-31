@@ -1,215 +1,103 @@
-"use client";
-import type { Demo } from "@/types";
-import {
-    AutoComplete,
-    AutoCompleteCompleteEvent,
-} from "primereact/autocomplete";
-import { Calendar } from "primereact/calendar";
-import { Chips } from "primereact/chips";
-import { Dropdown } from "primereact/dropdown";
-import { InputMask } from "primereact/inputmask";
-import { InputNumber } from "primereact/inputnumber";
-import { InputText } from "primereact/inputtext";
-import { InputTextarea } from "primereact/inputtextarea";
-import { MultiSelect } from "primereact/multiselect";
-import { useEffect, useState } from "react";
-import { CountryService } from "../../../../demo/service/CountryService";
+'use client';
 
-const FloatLabelDemo = () => {
-    const [countries, setCountries] = useState<Demo.Country[]>([]);
-    const [filteredCountries, setFilteredCountries] = useState<Demo.Country[]>(
-        []
-    );
-    const [value1, setValue1] = useState("");
-    const [value2, setValue2] = useState(null);
-    const [value3, setValue3] = useState("");
-    const [value4, setValue4] = useState("");
-    const [value5, setValue5] = useState<any>(null);
-    const [value6, setValue6] = useState<any[]>([]);
-    const [value7, setValue7] = useState("");
-    const [value8, setValue8] = useState<number | null>(null);
-    const [value9, setValue9] = useState("");
-    const [value10, setValue10] = useState(null);
-    const [value11, setValue11] = useState(null);
-    const [value12, setValue12] = useState("");
+import React, { useState } from 'react';
+import { Button } from 'primereact/button';
+import NominaModule from './nomina';
+import BonoModule from './bono';
+import PrestamoModule from './prestamo';
 
-    const cities = [
-        { name: "New York", code: "NY" },
-        { name: "Rome", code: "RM" },
-        { name: "London", code: "LDN" },
-        { name: "Istanbul", code: "IST" },
-        { name: "Paris", code: "PRS" },
-    ];
+const TableModule = () => {
+    const [activeModule, setActiveModule] = useState('Nomina'); // El que renderiza al cargar la pagina
 
-    useEffect(() => {
-        CountryService.getCountries().then((countries) => {
-            setCountries(countries);
-        });
-    }, []);
-
-    const searchCountry = (event: AutoCompleteCompleteEvent) => {
-        const filtered = [];
-        const query = event.query;
-        for (let i = 0; i < countries.length; i++) {
-            const country = countries[i];
-            if (country.name.toLowerCase().indexOf(query.toLowerCase()) === 0) {
-                filtered.push(country);
-            }
+    const renderModule = () => {
+        switch (activeModule) {
+            case 'Nomina':
+                return <NominaModule />;
+            case 'bono':
+                return <BonoModule />;
+            case 'prestamo':
+                return <PrestamoModule />;
+            default:
+                return <div>Selecciona un módulo</div>;
         }
-        setFilteredCountries(filtered);
     };
 
     return (
-        <div className="card">
-            <h5>Float Label</h5>
-            <p>
-                All input text components support floating labels by adding (
-                <mark>.p-float-label</mark>) to wrapper class.
-            </p>
-            <div className="grid p-fluid mt-3">
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <InputText
-                            type="text"
-                            id="inputtext"
-                            value={value1}
-                            onChange={(e) => setValue1(e.target.value)}
-                        />
-                        <label htmlFor="inputtext">InputText</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <AutoComplete
-                            id="autocomplete"
-                            value={value2}
-                            onChange={(e) => setValue2(e.value)}
-                            suggestions={filteredCountries}
-                            completeMethod={searchCountry}
-                            field="name"
-                        ></AutoComplete>
-                        <label htmlFor="autocomplete">AutoComplete</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label p-input-icon-left">
-                        <i className="pi pi-search" />
-                        <InputText
-                            id="lefticon"
-                            value={value3}
-                            onChange={(e) => setValue3(e.target.value)}
-                        />
-                        <label htmlFor="lefticon">Left Icon</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label p-input-icon-right">
-                        <i className="pi pi-spin pi-spinner" />
-                        <InputText
-                            id="righticon"
-                            value={value4}
-                            onChange={(e) => setValue4(e.target.value)}
-                        />
-                        <label htmlFor="righticon">Right Icon</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <Calendar
-                            inputId="calendar"
-                            value={value5}
-                            onChange={(e) => setValue5(e.value ?? "")}
-                        ></Calendar>
-                        <label htmlFor="calendar">Calendar</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <Chips
-                            inputId="chips"
-                            value={value6}
-                            onChange={(e) => setValue6(e.value ?? [])}
-                        ></Chips>
-                        <label htmlFor="chips">Chips</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <InputMask
-                            id="inputmask"
-                            mask="99/99/9999"
-                            value={value7}
-                            onChange={(e) => setValue7(e.value ?? "")}
-                        ></InputMask>
-                        <label htmlFor="inputmask">InputMask</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <InputNumber
-                            id="inputnumber"
-                            value={value8}
-                            onValueChange={(e) =>
-                                setValue8(e.target.value ?? null)
-                            }
-                        ></InputNumber>
-                        <label htmlFor="inputnumber">InputNumber</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <div className="p-inputgroup">
-                        <span className="p-inputgroup-addon">
-                            <i className="pi pi-user"></i>
-                        </span>
-                        <span className="p-float-label">
-                            <InputText
-                                type="text"
-                                id="inputgroup"
-                                value={value9}
-                                onChange={(e) => setValue9(e.target.value)}
-                            />
-                            <label htmlFor="inputgroup">InputGroup</label>
-                        </span>
+        <div className="grid">
+            <div className='col-12'>
+            {/* <h1 style={styles.title}>Tables</h1> */}
+                <div className="card">
+                    <div style={styles.menu}>
+                        <div
+                            style={activeModule === 'Nomina' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Nomina')}
+                        >
+                            Nomina - Operador
+                        </div>
+                        <div
+                            style={activeModule === 'bono' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('bono')}
+                        >
+                            Bono - Operador
+                        </div>
+                        <div
+                            style={activeModule === 'prestamo' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('prestamo')}
+                        >
+                            Prestamo - Operador
+                        </div>
                     </div>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <Dropdown
-                            id="dropdown"
-                            options={cities}
-                            value={value10}
-                            onChange={(e) => setValue10(e.value)}
-                            optionLabel="name"
-                        ></Dropdown>
-                        <label htmlFor="dropdown">Dropdown</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <MultiSelect
-                            id="multiselect"
-                            options={cities}
-                            value={value11}
-                            onChange={(e) => setValue11(e.value)}
-                            optionLabel="name"
-                        ></MultiSelect>
-                        <label htmlFor="multiselect">MultiSelect</label>
-                    </span>
-                </div>
-                <div className="field col-12 md:col-4">
-                    <span className="p-float-label">
-                        <InputTextarea
-                            id="textarea"
-                            rows={3}
-                            value={value12}
-                            onChange={(e) => setValue12(e.target.value)}
-                        ></InputTextarea>
-                        <label htmlFor="textarea">Textarea</label>
-                    </span>
+                    <div style={styles.tableContainer}>
+                        {renderModule()}
+                    </div>
                 </div>
             </div>
         </div>
     );
 };
 
-export default FloatLabelDemo;
+const styles = {
+    container: {
+        backgroundColor: '#f9f9f9',
+    },
+    title: {
+        marginBottom: '20px',
+        fontSize: '24px',
+        fontWeight: 'bold',
+    },
+    whiteContainer: {
+        backgroundColor: 'white',
+        borderRadius: '8px',
+        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.1)',
+        padding: '20px',
+    },
+    menu: {
+        display: 'flex',
+        marginBottom: '20px',
+        borderBottom: '2px solid #ccc',
+    },
+    menuItem: {
+        padding: '10px 20px',
+        cursor: 'pointer',
+        borderBottom: '2px solid transparent',
+    },
+    activeMenuItem: {
+        padding: '10px 20px',
+        cursor: 'pointer',
+        borderBottom: '2px solid red',
+        fontWeight: 'bold',
+    },
+    actions: {
+        display: 'flex',
+        justifyContent: 'flex-end',
+        marginBottom: '20px',
+    },
+    button: {
+        marginLeft: '10px',
+    },
+    tableContainer: {
+        marginTop: '20px',
+    },
+};
+
+export default TableModule;

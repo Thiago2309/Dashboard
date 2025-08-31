@@ -324,8 +324,22 @@ const GastosCrud = () => {
                             <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
                             <Calendar
                                 id="fecha"
-                                value={gasto.fecha ? new Date(gasto.fecha) : null}
-                                onChange={(e) => setGasto({ ...gasto, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
+                                value={
+                                    gasto.fecha
+                                        ? (() => {
+                                            const [year, month, day] = gasto.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setGasto({
+                                        ...gasto,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
                                 dateFormat="yy-mm-dd"
                                 showIcon
                                 required

@@ -10,6 +10,8 @@ import OrigenDestino from './PrecioOriengenDestino';
 import ClientesCrud from './clientes';
 import OperadoresCrud from './operador';
 import InvitadosCrud from './invitados';
+import ProvedoresCrud from './provedores';
+import MaterialCrud from './material';
 
 const TableModule = () => {
     const [activeModule, setActiveModule] = useState('Viajes');
@@ -30,6 +32,10 @@ const TableModule = () => {
                     return <ClientesCrud />;
             case 'Operadores':
                     return <OperadoresCrud />;
+            case 'Provedores':
+                    return <ProvedoresCrud />;
+            case 'Material':
+                    return <MaterialCrud />;
             case 'Invitados':
                 return <InvitadosCrud />;
             default:
@@ -84,6 +90,18 @@ const TableModule = () => {
                             onClick={() => setActiveModule('Operadores')}
                         >
                             Operadores
+                        </div>
+                        <div
+                            style={activeModule === 'Provedores' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Provedores')}
+                        >
+                            Provedores
+                        </div>
+                        <div
+                            style={activeModule === 'Material' ? styles.activeMenuItem : styles.menuItem}
+                            onClick={() => setActiveModule('Material')}
+                        >
+                            Material
                         </div>
                         <div
                             style={activeModule === 'Invitados' ? styles.activeMenuItem : styles.menuItem}

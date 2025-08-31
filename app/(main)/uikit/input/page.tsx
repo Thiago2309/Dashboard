@@ -38,24 +38,6 @@ const TableModule = () => {
                         >
                             Cuentas x Pagar
                         </div>
-                        <div
-                            style={activeModule === 'Combustible' ? styles.activeMenuItem : styles.menuItem}
-                            onClick={() => setActiveModule('Combustible')}
-                        >
-                            Nomina - Operador Camion
-                        </div>
-                        <div
-                            style={activeModule === '-' ? styles.activeMenuItem : styles.menuItem}
-                            onClick={() => setActiveModule('Combustible')}
-                        >
-                            Nomina - Operador Maquinaria
-                        </div>
-                        <div
-                            style={activeModule === '-' ? styles.activeMenuItem : styles.menuItem}
-                            onClick={() => setActiveModule('Combustible')}
-                        >
-                            Nomina - Administrativo
-                        </div>
                     </div>
                     <div style={styles.tableContainer}>
                         {renderModule()}
