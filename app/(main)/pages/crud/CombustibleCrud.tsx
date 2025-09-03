@@ -10,6 +10,7 @@ import { Dropdown } from 'primereact/dropdown';
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, Combustible, fetchViajes, fetchOperadores } from '../../../../Services/BD/combustibleService';
+import { InputNumber } from 'primereact/inputnumber';
 
 const CombustibleCrud = () => {
     let emptyCombustible: Combustible = {
@@ -476,10 +477,13 @@ const CombustibleCrud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="litros">Litros</label><span style={{ color: 'red' }}> *</span>
-                            <InputText
+                            <InputNumber
                                 id="litros"
-                                value={combustible.litros?.toString() || ''}
-                                onChange={(e) => setCombustible({ ...combustible, litros: parseFloat(e.target.value) || null })}
+                                value={combustible.litros ?? null}
+                                onValueChange={(e) => setCombustible({ ...combustible, litros: e.value ?? null })}
+                                mode="decimal"
+                                minFractionDigits={0}   // si aceptas enteros (ej: 50 litros)
+                                maxFractionDigits={2}   // si aceptas decimales (ej: 50.75 litros)
                                 required
                                 className={submitted && !combustible.litros ? 'p-invalid' : ''}
                             />
@@ -487,10 +491,15 @@ const CombustibleCrud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
-                            <InputText
+                            <InputNumber
                                 id="importe"
-                                value={combustible.importe?.toString() || ''}
-                                onChange={(e) => setCombustible({ ...combustible, importe: parseFloat(e.target.value) || null })}
+                                value={combustible.importe ?? null}
+                                onValueChange={(e) => setCombustible({ ...combustible, importe: e.value ?? null })}
+                                mode="currency"
+                                currency="MXN"     // o USD, EUR, etc.
+                                locale="es-MX"     // formato mexicano: $ 1,234.56
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
                                 required
                                 className={submitted && !combustible.importe ? 'p-invalid' : ''}
                             />

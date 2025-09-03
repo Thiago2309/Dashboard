@@ -279,7 +279,7 @@ export const fetchCuentasPorCliente = async (id_cliente: number): Promise<Cuenta
             .select('id, caphrsviajes')
             .eq('id_cliente', id_cliente);
 
-        if (errorViajes) throw errorViajes;
+        if (errorViajes) throw errorViajes;       
         const totalHorasViaje = viajes?.reduce((sum, viaje) => sum + (viaje.caphrsviajes || 0), 0) || 0;
 
         // 2. Obtenemos cuentas existentes
@@ -312,21 +312,59 @@ export const fetchCuentasPorCliente = async (id_cliente: number): Promise<Cuenta
         }
 
         // 4. Mapeamos las cuentas existentes
-        return cuentas.map(cuenta => {
+        const cuentasActualizadas: CuentaPorCobrar[] = [];
+        
+        for (const cuenta of cuentas) {
             const totalAbonado = cuenta.pagos?.reduce(
                 (sum: number, pago: any) => sum + (pago.monto || 0), 
                 0
             ) || 0;
 
-            return {
-                ...cuenta,
-                cliente_nombre: (cuenta.cliente as unknown as { empresa: string })?.empresa || '',
-                saldo: totalHorasViaje,
-                adeudo: totalHorasViaje - totalAbonado,
+            // 5. ACTUALIZAR EL SALDO EN LA BASE DE DATOS si es diferente
+            if (cuenta.saldo !== totalHorasViaje) {
+                await supabase
+                    .from('cuentas_por_cobrar')
+                    .update({ saldo: totalHorasViaje })
+                    .eq('id', cuenta.id);
+            }
+
+            // CORRECCIÓN: Evitar cero negativo y problemas de precisión
+            const adeudoActual = Math.max(0, Number((totalHorasViaje - totalAbonado).toFixed(2)));
+
+            // 6. Determinar el nuevo estatus
+            const estatusActualizado: 'Pagado' | 'Pendiente' | 'Cancelado' = 
+                adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
+
+            // 7. Actualizar estatus si ha cambiado
+            if (cuenta.estatus !== estatusActualizado) {
+                await supabase
+                    .from('cuentas_por_cobrar')
+                    .update({ estatus: estatusActualizado })
+                    .eq('id', cuenta.id);
+            }
+
+            // 8. Crear objeto de cuenta actualizada
+            const cuentaActualizada: CuentaPorCobrar = {
+                id: cuenta.id,
+                id_cliente: cuenta.id_cliente,
+                id_viaje: cuenta.id_viaje,
+                fecha: cuenta.fecha,
                 monto: totalAbonado,
-                pagos: cuenta.pagos || []
+                saldo: totalHorasViaje,
+                adeudo: adeudoActual,
+                estatus: estatusActualizado,
+                metodo_pago: cuenta.metodo_pago,
+                referencia: cuenta.referencia,
+                fecha_pago: cuenta.fecha_pago,
+                fecha_pago_esperado: cuenta.fecha_pago_esperado,
+                notas: cuenta.notas,
+                cliente_nombre: (cuenta.cliente as unknown as { empresa: string })?.empresa || ''
             };
-        });
+
+            cuentasActualizadas.push(cuentaActualizada);
+        }
+
+        return cuentasActualizadas;
 
     } catch (error) {
         console.error('Error en fetchCuentasPorCliente:', error);
@@ -415,19 +453,16 @@ export const registrarPagoConHistorial = async (
 
     if (errorPago) throw errorPago;
 
-    // 2. Obtener el saldo actual de la cuenta
+    // 2. Obtener la cuenta COMPLETA
     const { data: cuenta, error: errorCuenta } = await supabase
         .from('cuentas_por_cobrar')
-        .select('saldo')
+        .select('*')
         .eq('id', id_cuenta)
         .single();
 
     if (errorCuenta) throw errorCuenta;
 
-    const nuevoSaldo = cuenta.saldo - monto;
-    const nuevoEstatus = nuevoSaldo <= 0 ? 'Pagado' : 'Pendiente';
-
-    // 3. Sumar todos los pagos hechos a esta cuenta
+    // 3. Sumar TODOS los pagos hechos a esta cuenta
     const { data: pagos, error: errorPagos } = await supabase
         .from('pagos')
         .select('monto')
@@ -437,13 +472,18 @@ export const registrarPagoConHistorial = async (
 
     // Sumar los montos
     const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
+    
+    // 4. Calcular el adeudo REAL (evitando cero negativo)
+    const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
+    const adeudoActual = Math.max(0, Number((deudaTotal - totalPagado).toFixed(2)));
+    const nuevoEstatus = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
 
-    // 4. Actualizar la cuenta con el nuevo saldo, monto acumulado, estatus y fecha de pago
+    // 5. Actualizar la cuenta
     const { error } = await supabase
         .from('cuentas_por_cobrar')
         .update({
-            saldo: nuevoSaldo,
             monto: totalPagado,
+            saldo: deudaTotal,
             estatus: nuevoEstatus,
             metodo_pago: metodo_pago,
             fecha_pago: nuevoEstatus === 'Pagado' ? new Date().toISOString() : null
@@ -467,55 +507,71 @@ export const fetchHistorialPagos = async (id_cuenta: number) => {
 
 // ACTUALIZAR ABONO DEL HISTORIAL DE ABONOS
 export const actualizarPago = async (
-        idPago: number,
-        nuevoMonto: number,
-        nuevoEstatus: string,
-        metodo_pago: string
-    ): Promise<void> => {
-        // 1. Actualizar el monto del pago individual
-        const { error: errorActualizacion } = await supabase
+    idPago: number,
+    nuevoMonto: number,
+    nuevoEstatus: string,
+    metodo_pago: string,
+    nuevaReferencia: string
+): Promise<void> => {
+    // 1. Actualizar el pago individual
+    const { error: errorActualizacion } = await supabase
         .from('pagos')
         .update({ 
             monto: nuevoMonto,
+            referencia: nuevaReferencia,
             fecha: new Date().toISOString().split('T')[0],
         })
         .eq('id', idPago);
-    
-        if (errorActualizacion) throw errorActualizacion;
-    
-        // 2. Obtener el pago actualizado para conocer a qué cuenta pertenece
-        const { data: pagoActualizado, error: errorPago } = await supabase
+
+    if (errorActualizacion) throw errorActualizacion;
+
+    // 2. Obtener la cuenta asociada
+    const { data: pagoActualizado, error: errorPago } = await supabase
         .from('pagos')
         .select('id_cuenta')
         .eq('id', idPago)
         .single();
-    
-        if (errorPago) throw errorPago;
-    
-        const idCuenta = pagoActualizado?.id_cuenta;
-    
-        if (!idCuenta) throw new Error('El pago no tiene una cuenta asociada');
-    
-        // 3. Obtener todos los pagos de esa cuenta
-        const { data: pagos, error: errorPagosCuenta } = await supabase
+
+    if (errorPago) throw errorPago;
+
+    const idCuenta = pagoActualizado?.id_cuenta;
+    if (!idCuenta) throw new Error('El pago no tiene una cuenta asociada');
+
+    // 3. Obtener la cuenta COMPLETA
+    const { data: cuenta, error: errorCuentaData } = await supabase
+        .from('cuentas_por_cobrar')
+        .select('*')
+        .eq('id', idCuenta)
+        .single();
+
+    if (errorCuentaData) throw errorCuentaData;
+
+    // 4. Recalcular TODOS los pagos
+    const { data: pagos, error: errorPagosCuenta } = await supabase
         .from('pagos')
         .select('monto')
         .eq('id_cuenta', idCuenta);
+
+    if (errorPagosCuenta) throw errorPagosCuenta;
+
+    const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
     
-        if (errorPagosCuenta) throw errorPagosCuenta;
-    
-        const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
-    
-        // 4. Actualizar la cuenta con el nuevo total pagado
-        const { error: errorCuenta } = await supabase
+    // 5. Calcular el adeudo REAL
+    const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
+    const adeudoActual = deudaTotal - totalPagado;
+    const estatusActualizado = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
+
+    // 6. Actualizar la cuenta
+    const { error: errorCuenta } = await supabase
         .from('cuentas_por_cobrar')
         .update({
             monto: totalPagado,
-            estatus: nuevoEstatus,
+            saldo: deudaTotal, // ← Corregir el saldo
+            estatus: estatusActualizado,
             metodo_pago,
-            fecha_pago: nuevoEstatus === 'Pagado' ? new Date().toISOString() : null
+            fecha_pago: estatusActualizado === 'Pagado' ? new Date().toISOString() : null
         })
         .eq('id', idCuenta);
-    
-        if (errorCuenta) throw errorCuenta;
-    };
+
+    if (errorCuenta) throw errorCuenta;
+};

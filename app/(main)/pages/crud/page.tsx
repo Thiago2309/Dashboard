@@ -11,6 +11,7 @@ import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
 import { DataTableFilterMeta } from 'primereact/datatable';
+import { InputNumber } from 'primereact/inputnumber';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -319,7 +320,10 @@ const Crud = () => {
             <>
                 <span className="p-column-title">Cap. Hrs Viajes</span>
                 ${' '}
-                {rowData.caphrsviajes}
+                {rowData.caphrsviajes?.toLocaleString('es-MX', {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2
+                }) || '0.00'}
             </>
         );
     };
@@ -440,7 +444,7 @@ const Crud = () => {
                         <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
                         <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
                         <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
-                        <Column field="caphrsviajes" header="Precio" sortable body={caphrsviajesBodyTemplate}></Column>
+                        <Column field="caphrsviajes" header="Precio" sortable body={caphrsviajesBodyTemplate} style={{ width: '150px', minWidth: '120px' }}></Column>
                         <Column header="Acción" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
@@ -572,10 +576,13 @@ const Crud = () => {
                             {viaje.id && ( // Solo muestra el campo si viaje.id existe (modo update)
                                 <>
                                     <label htmlFor="caphrsviajes">Cap. Hrs Viajes</label>
-                                    <InputText
+                                    <InputNumber
                                         id="caphrsviajes"
-                                        value={viaje.caphrsviajes?.toString() || ''}
-                                        onChange={(e) => setViaje({ ...viaje, caphrsviajes: parseFloat(e.target.value) || null })}
+                                        value={viaje.caphrsviajes ?? null}
+                                        onValueChange={(e) => setViaje({ ...viaje, caphrsviajes: e.value ?? null })}
+                                        mode="decimal"
+                                        minFractionDigits={0}   // mínimo de decimales
+                                        maxFractionDigits={2}   // máximo de decimales permitidos
                                         required
                                         className={submitted && !viaje.caphrsviajes ? 'p-invalid' : ''}
                                     />

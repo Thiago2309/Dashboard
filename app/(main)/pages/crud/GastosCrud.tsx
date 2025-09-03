@@ -10,6 +10,7 @@ import { Dropdown } from 'primereact/dropdown';
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchGastos, createGasto, updateGasto, deleteGasto, Gasto, fetchViajes, fetchProveedores } from '../../../../Services/BD/gastoService';
+import { InputNumber } from 'primereact/inputnumber';
 
 const GastosCrud = () => {
     let emptyGasto: Gasto = {
@@ -394,10 +395,15 @@ const GastosCrud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
-                            <InputText
+                            <InputNumber
                                 id="importe"
-                                value={gasto.importe?.toString() || ''}
-                                onChange={(e) => setGasto({ ...gasto, importe: parseFloat(e.target.value) || null })}
+                                value={gasto.importe ?? null}
+                                onValueChange={(e) => setGasto({ ...gasto, importe: e.value ?? null })}
+                                mode="currency"
+                                currency="MXN"   // puedes cambiarlo a "USD", "EUR", etc.
+                                locale="es-MX"   // formato local (coma, punto, símbolo $)
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
                                 required
                                 className={submitted && !gasto.importe ? 'p-invalid' : ''}
                             />

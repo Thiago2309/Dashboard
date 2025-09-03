@@ -8,6 +8,7 @@ import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchOrigenDestino, createOrigenDestino, updateOrigenDestino, deleteOrigenDestino, OrigenDestino } from '../../../../Services/BD/origenDestinoService';
+import { InputNumber } from 'primereact/inputnumber';
 
 const OrigenDestinoCrud = () => {
     let emptyOrigenDestino: OrigenDestino = {
@@ -266,18 +267,14 @@ const OrigenDestinoCrud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="precio_unidad">Precio Unidad</label>
-                            <InputText
-                                id="Precio_Unidad"
-                                value={origenDestino.precio_unidad.toString()}  // Convertir a string para mostrar
-                                onChange={(e) => {
-                                    const value = e.target.value;
-                                    // Convertir a número, usar 0 si no es válido
-                                    const precio = isNaN(parseFloat(value)) ? 0 : parseFloat(value);
-                                    setOrigenDestino({ ...origenDestino, precio_unidad: precio });
-                                }}
-                                required
-                                className={submitted && origenDestino.precio_unidad <= 0 ? 'p-invalid' : ''}
-                            />
+                            <InputNumber 
+                                id="precio_unidad"
+                                value={origenDestino.precio_unidad}
+                                onValueChange={(e) => setOrigenDestino({ ...origenDestino, precio_unidad: e.value || 0 })}
+                                mode="decimal"
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
+                                />
                             {submitted && !origenDestino.precio_unidad && <small className="p-invalid">Precio es requerido.</small>}
                         </div>
                     </Dialog>

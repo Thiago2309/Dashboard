@@ -15,6 +15,9 @@ import { fetchPrestamosActivos, Prestamo } from '../../../../../Services/BD/Nomi
 import { fetchViajes, Viaje } from '../../../../../Services/BD/viajeService';
 import { createNomina, Nomina, updateNomina, fetchNominasPorSemana } from '../../../../../Services/BD/Nomina/nominasService';
 import { fetchBonosActivos } from '../../../../../Services/BD/Nomina/bonosService';
+import * as XLSX from 'xlsx';
+import { useCallback } from 'react';
+import { ReciboNomina } from '../../../../../app/(main)/pages/crud/Nomina/reciboNomina';
 
 const NominaModule = () => {
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -34,6 +37,7 @@ const NominaModule = () => {
     const [semanaActual, setSemanaActual] = useState<number>(0);
     const [anioActual, setAnioActual] = useState<number>(0);
     const toast = useRef<Toast>(null);
+    const dt = useRef<DataTable<any>>(null);
 
     const metodosPago = [
         { label: 'Efectivo', value: 'efectivo' },
@@ -41,6 +45,11 @@ const NominaModule = () => {
         { label: 'Cheque', value: 'cheque' },
         { label: 'Depósito', value: 'deposito' }
     ];
+
+    const exportCSV = () => {
+        dt.current?.exportCSV();
+    };
+
 
     useEffect(() => {
         cargarDatos();
@@ -52,7 +61,7 @@ const NominaModule = () => {
 
     const getStartOfWeek = (date: Date) => {
         const day = date.getDay(); // 0 = Domingo, 1 = Lunes, ..., 4 = Jueves
-        const diff = date.getDate() - day + (day < 4 ? -3 : 4); // Ajustar para que jueves sea el inicio
+        const diff = date.getDate() - day + (day < 4 ? -2 : 4); // Ajustar para que jueves sea el inicio
         const newDate = new Date(date);
         newDate.setDate(diff);
         return newDate;
@@ -61,7 +70,7 @@ const NominaModule = () => {
     const getEndOfWeek = (date: Date) => {
         const start = getStartOfWeek(new Date(date));
         const end = new Date(start);
-        end.setDate(start.getDate() + 7); // 7 días después del jueves = jueves
+        end.setDate(start.getDate() + 6); // 7 días después del jueves = jueves
         return end;
     };
 
@@ -71,13 +80,13 @@ const NominaModule = () => {
         
         // Encontrar el jueves de esta semana
         const day = tempDate.getDay();
-        const diff = tempDate.getDate() - day + (day < 4 ? -3 : 4);
+        const diff = tempDate.getDate() - day + (day < 4 ? -2 : 4);
         tempDate.setDate(diff);
         
         // Primer jueves del año
         const firstThursday = new Date(tempDate.getFullYear(), 0, 1);
         const firstDay = firstThursday.getDay();
-        const firstDiff = firstThursday.getDate() - firstDay + (firstDay < 4 ? -3 : 4);
+        const firstDiff = firstThursday.getDate() - firstDay + (firstDay < 4 ? -2 : 4);
         firstThursday.setDate(firstDiff);
         
         // Calcular diferencia en semanas
@@ -520,6 +529,21 @@ const NominaModule = () => {
         </div>
     );
 
+    const rightToolbarTemplate = () => {
+        return (
+            <React.Fragment>
+                <Button 
+                    label="Exportar Excel" 
+                    icon="pi pi-file-excel" 
+                    severity="success" 
+                    onClick={exportToExcel} 
+                    className="ml-2"
+                    tooltip="Exportar nómina completa con viajes a Excel"
+                />
+            </React.Fragment>
+        );
+    };
+
     const headerTemplate = () => (
         <div className="flex justify-content-between align-items-center">
             <span>
@@ -560,6 +584,100 @@ const NominaModule = () => {
         return formatCurrency(rowData.salario_base);
     };
 
+    // Exportacion de Excel con viajes incluidos
+    const exportToExcel = () => {
+        try {
+            // Crear libro de Excel
+            const wb = XLSX.utils.book_new();
+            
+            // Hoja 1: Datos de nómina (similar a lo que muestra el DataTable)
+            const datosNomina = nominasCalculadas.map(nomina => ({
+                'Empleado': nomina.empleado_nombre,
+                'Estado': nomina.estatus,
+                'Método Pago': nomina.metodo_pago || 'N/A',
+                'Referencia': nomina.referencia_pago || 'N/A',
+                'Viajes': nomina.cantidad_viajes,
+                'Total Viajes': formatCurrency(nomina.total_viajes),
+                'Salario Base': formatCurrency(nomina.salario_base),
+                'Rebasó 40K': nomina.rebaso ? 'Sí' : 'No',
+                'Bono': formatCurrency(nomina.bono),
+                'Pago Bruto': formatCurrency(nomina.pago_bruto),
+                'Préstamos': formatCurrency(nomina.prestamos),
+                'Pago Neto': formatCurrency(nomina.pago_neto),
+                'Semana': nomina.semana,
+                'Año': nomina.anio
+            }));
+            
+            const wsNomina = XLSX.utils.json_to_sheet(datosNomina);
+            XLSX.utils.book_append_sheet(wb, wsNomina, 'Nómina');
+            
+            // Hoja 2: Viajes de los operadores (detallados)
+            const datosViajes = [];
+            
+            // Recopilar viajes de cada operador en la nómina
+            for (const nomina of nominasCalculadas) {
+                if (nomina.viajes && nomina.viajes.length > 0) {
+                    for (const viaje of nomina.viajes) {
+                        datosViajes.push({
+                            'Operador': nomina.empleado_nombre,
+                            'ID Viaje': viaje.id,
+                            'Fecha': viaje.fecha,
+                            'Folio': viaje.folio,
+                            'Folio BCO': viaje.folio_bco,
+                            'Monto Viaje': formatCurrency(viaje.caphrsviajes || 0),
+                            'Origen': viaje.origen,
+                            'Destino': viaje.destino,
+                            'Semana Nómina': nomina.semana
+                        });
+                    }
+                }
+            }
+            
+            // Si no hay viajes en los objetos de nómina, usar viajesSemana
+            if (datosViajes.length === 0 && viajesSemana.length > 0) {
+                for (const viaje of viajesSemana) {
+                    datosViajes.push({
+                        'Operador': viaje.operador_nombre,
+                        'ID Viaje': viaje.id,
+                        'Fecha': viaje.fecha,
+                        'Folio': viaje.folio,
+                        'Folio BCO': viaje.folio_bco,
+                        'Monto Viaje': formatCurrency(viaje.caphrsviajes || 0),
+                        'Origen': viaje.origen,
+                        'Destino': viaje.destino,
+                        'Semana Nómina': semanaActual
+                    });
+                }
+            }
+            
+            if (datosViajes.length > 0) {
+                const wsViajes = XLSX.utils.json_to_sheet(datosViajes);
+                XLSX.utils.book_append_sheet(wb, wsViajes, 'Viajes');
+            }
+            
+            // Generar nombre de archivo
+            const fileName = `Nomina_Semana_${semanaActual}_${anioActual}.xlsx`;
+            
+            // Descargar archivo
+            XLSX.writeFile(wb, fileName);
+            
+            toast.current?.show({
+                severity: 'success',
+                summary: 'Éxito',
+                detail: 'Archivo Excel exportado correctamente',
+                life: 3000
+            });
+        } catch (error) {
+            console.error('Error al exportar a Excel:', error);
+            toast.current?.show({
+                severity: 'error',
+                summary: 'Error',
+                detail: 'No se pudo exportar el archivo Excel',
+                life: 3000
+            });
+        }
+    };
+
     const estadoBodyTemplate = (rowData: any) => {
         return (
             <span className={`p-tag ${rowData.estatus === 'Pagado' ? 'p-tag-success' : 'p-tag-warning'}`}>
@@ -592,16 +710,41 @@ const NominaModule = () => {
     };
 
     const actionBodyTemplate = (rowData: any) => {
+        const componentRef = useRef<HTMLDivElement>(null);
+        
+        const handlePrint = useReactToPrint({
+            content: () => componentRef.current,
+            documentTitle: `Recibo_Nomina_${rowData.empleado_nombre}_Semana_${rowData.semana}_${rowData.anio}`,
+        });
+
         return (
-            <Button 
-                icon="pi pi-dollar" 
-                rounded 
-                severity="success"
-                tooltip="Procesar pago"
-                tooltipOptions={{ position: 'top' }}
-                onClick={() => abrirDialogoPago(rowData)}
-                disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
-            />
+            <div className="flex gap-1">
+                <Button 
+                    icon="pi pi-dollar" 
+                    rounded 
+                    severity="success"
+                    tooltip="Procesar pago"
+                    tooltipOptions={{ position: 'top' }}
+                    onClick={() => abrirDialogoPago(rowData)}
+                    disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
+                    className="p-button-sm"
+                />
+                <Button 
+                    icon="pi pi-file-pdf" 
+                    rounded 
+                    severity="info"
+                    tooltip="Generar recibo"
+                    tooltipOptions={{ position: 'top' }}
+                    onClick={handlePrint}
+                    className="p-button-sm"
+                    disabled={!rowData.empleado_nombre}
+                />
+                
+                {/* Componente de recibo (oculto) */}
+                <div style={{ display: 'none' }}>
+                    <ReciboNomina ref={componentRef} nomina={rowData} />
+                </div>
+            </div>
         );
     };
 
@@ -678,9 +821,10 @@ const NominaModule = () => {
                     {showResults && nominasCalculadas.length > 0 && (
                         <>
                             <Card title={headerTemplate} className="mb-4">
-                                <Toolbar className="mb-4" left={leftToolbarTemplate} />
+                                <Toolbar className="mb-4" left={leftToolbarTemplate} right={rightToolbarTemplate} />
                                 
                                 <DataTable
+                                    ref={dt}
                                     value={nominasCalculadas}
                                     paginator
                                     rows={10}
@@ -779,5 +923,29 @@ const NominaModule = () => {
         </div>
     );
 };
+
+function useReactToPrint({ content, documentTitle }: { content: () => any; documentTitle: string; }) {
+    return useCallback(() => {
+        const printContent = content();
+        if (!printContent) return;
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) return;
+
+        printWindow.document.write(`
+            <html>
+                <head>
+                    <title>${documentTitle}</title>
+                </head>
+                <body>
+                    ${printContent.outerHTML}
+                </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        printWindow.print();
+    }, [content, documentTitle]);
+}
 
 export default NominaModule;

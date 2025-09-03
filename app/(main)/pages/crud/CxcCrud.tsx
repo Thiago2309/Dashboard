@@ -43,6 +43,7 @@ const CxcCrud = () => {
     const [historialPagos, setHistorialPagos] = useState<any[]>([]);
     const [metodoPago, setMetodoPago] = useState<string>('Efectivo');
     const [referenciaPago, setReferenciaPago] = useState<string>('');
+    const [nuevaReferencia, setNuevaReferencia] = useState<string>('');
     // EDITAR MONTO DE HISTORIAL DE ABONOS
     const [pagoEditDialog, setPagoEditDialog] = useState(false);
     const [pagoEditado, setPagoEditado] = useState<any>(null);
@@ -66,9 +67,10 @@ const CxcCrud = () => {
     }, []);
 
 
-    const abrirDialogoEditarPago = (pago: any) => {
+    const abrirDialogoEditarPago = async (pago: any) => {
         setPagoEditado(pago);
         setNuevoMonto(pago.monto);
+        setNuevaReferencia(pago.referencia || '');
         setPagoEditDialog(true);
     };
 
@@ -81,7 +83,8 @@ const CxcCrud = () => {
                 pagoEditado.id,
                 nuevoMonto,
                 pagoEditado.estatus,
-                pagoEditado.metodo_pago
+                pagoEditado.metodo_pago,
+                nuevaReferencia
               );
             
             // Actualiza el estado local
@@ -187,9 +190,10 @@ const CxcCrud = () => {
     };
 
     const fechaPagoBodyTemplate = (rowData: CuentaPorCobrar) => {
-        return rowData.fecha_pago_esperado 
-            ? new Date(rowData.fecha_pago_esperado).toLocaleDateString('es-MX')
-            : 'Sin fecha';
+        if (!rowData.fecha_pago_esperado) return 'Sin fecha';
+        // Mostrar la fecha exactamente como viene, pero formateada a dd-mm-aaaa sin modificar la zona horaria
+        const [year, month, day] = rowData.fecha_pago_esperado.split('T')[0].split('-');
+        return `${day}-${month}-${year}`;
     };
 
     const getSeverity = (rowData: CuentaPorCobrar) => {
@@ -257,8 +261,6 @@ const CxcCrud = () => {
           mostrarError('Error al registrar abono');
         }
       };
-
-    // const registrarPagoCliente = async () => {
     //     if (!cuentaSeleccionada || !montoPago) return;
     
     //     try {
@@ -351,8 +353,8 @@ const CxcCrud = () => {
                     <div className="flex align-items-center gap-4">
                         <div className="bg-white border-round p-3 surface-card shadow-1">
                             <span className="block text-sm text-color-secondary">Total por Cobrar:</span>
-                            <span className={`text-xl font-medium ${totalGeneral > 0 ? 'text-green-500' : 'text-orange-500'}`}>
-                                {formatCurrency(totalGeneral)}
+                            <span className={`text-xl font-medium ${Math.max(0, totalGeneral) > 0 ? 'text-green-500' : 'text-orange-500'}`}>
+                                {formatCurrency(Math.max(0, totalGeneral))}
                             </span>
                         </div>
                         <Button 
@@ -374,38 +376,6 @@ const CxcCrud = () => {
                         <div className="grid">
                             {resumenClientes.map(cliente => (
                                 <div className="col-12 md:col-6 lg:col-4" key={cliente.id_cliente}>
-                                    {/* <Card 
-                                        className={`cursor-pointer border-1 border-round ${clienteSeleccionado?.id_cliente === cliente.id_cliente ? 'border-primary' : 'border-transparent'}`}
-                                        onClick={() => handleClienteClick(cliente)}
-                                        header={
-                                            <div className="flex justify-content-between align-items-center">
-                                                <div className="grid"></div>
-                                                <span className="font-bold">{cliente.cliente_nombre}</span>
-                                                <Tag 
-                                                    value={cliente.cuentas_pendientes} 
-                                                    severity={cliente.cuentas_pendientes > 0 ? 'warning' : 'success'}
-                                                    rounded
-                                                />
-                                            </div>
-                                        }
-                                    >
-                                        <div className="flex flex-column gap-2">
-                                            <div className="flex justify-content-between align-items-center">
-                                                <span className="text-sm">SubTotal de Deuda:</span>
-                                                <span className="font-bold">{formatCurrency(cliente.total_adeudado)} </span>
-                                            </div>
-                                            <div className="flex justify-content-between align-items-center">
-                                                <span className="text-sm">Total Pagado:</span>
-                                                <span className="font-bold">{formatCurrency(cliente.total_monto_pagado)}</span>
-                                            </div>
-                                            <div className="flex justify-content-between align-items-center">
-                                                <span className="text-sm">Total Adeudado:</span>
-                                                <span className={`font-bold ${cliente.total_adeudado > 0 ? 'text-red-500' : 'text-green-500'}`}>
-                                                    {formatCurrency(cliente.total_adeudado)}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </Card> */}
                                     <Card 
                                         className={`cursor-pointer transition-all transition-duration-200 ${clienteSeleccionado?.id_cliente === cliente.id_cliente ? 'border-left-3 border-primary' : 'border-left-3 border-white'}`}
                                         onClick={() => handleClienteClick(cliente)}
@@ -413,15 +383,16 @@ const CxcCrud = () => {
                                         <div className="flex flex-column gap-3">
                                             {/* Header con nombre y estado */}
                                             <div className="flex justify-content-between align-items-start">
-                                            <span className="font-medium text-900" style={{ fontSize: '1.1rem' }}>
-                                                {cliente.cliente_nombre}
-                                            </span>
-                                            <Tag 
-                                                value={cliente.cuentas_pendientes > 0 ? "Por cobrar" : "Al día"} 
-                                                severity={cliente.cuentas_pendientes > 0 ? 'warning' : 'success'}
-                                                className="scale-90"
-                                                rounded
-                                            />
+                                                <span className="font-medium text-900" style={{ fontSize: '1.1rem' }}>
+                                                    {cliente.cliente_nombre}
+                                                </span>
+
+                                                <Tag 
+                                                    value={Math.abs(cliente.total_horas_viaje - cliente.total_monto_pagado) < 0.01 ? "Pagado" : "Por cobrar"} 
+                                                    severity={Math.abs(cliente.total_horas_viaje - cliente.total_monto_pagado) < 0.01 ? 'success' : 'warning'}
+                                                    className="scale-90"
+                                                    rounded
+                                                />
                                             </div>
 
                                             {/* Línea divisoria sutil */}
@@ -449,8 +420,8 @@ const CxcCrud = () => {
                                             <div className="col-12 mt-2">
                                                 <div className="flex justify-content-between align-items-center surface-100 p-2 border-round">
                                                 <span className="text-sm text-600">Saldo Restante por Cobrar</span>
-                                                <span className={`font-semibold ${(cliente.total_horas_viaje - cliente.total_monto_pagado) > 0 ? 'text-orange-500' : 'text-green-500'}`}>
-                                                    {formatCurrency((cliente.total_horas_viaje || 0) - (cliente.total_monto_pagado || 0))}
+                                                <span className={`font-semibold ${Math.max(0, (cliente.total_horas_viaje || 0) - (cliente.total_monto_pagado || 0)) > 0 ? 'text-orange-500' : 'text-green-500'}`}>
+                                                    {formatCurrency(Math.max(0, (cliente.total_horas_viaje || 0) - (cliente.total_monto_pagado || 0)))}
                                                 </span>
                                                 </div>
                                             </div>
@@ -465,7 +436,7 @@ const CxcCrud = () => {
                             <div className="mt-5">
                                 <Card 
                                     title={`Detalles de cuentas - ${clienteSeleccionado.cliente_nombre}`}
-                                    subTitle={`Total A Cobrar: ${formatCurrency(clienteSeleccionado.total_adeudado)}`}
+                                    subTitle={`Total A Cobrar: ${formatCurrency(Math.max(0, clienteSeleccionado.total_adeudado))}`}
                                 >
                                     {loading.detalles ? (
                                         <div className="flex justify-content-center">
@@ -532,7 +503,7 @@ const CxcCrud = () => {
                                                                 e.stopPropagation();
                                                                 abrirDialogoPago(row);
                                                             }}
-                                                            disabled={row.estatus !== 'Pendiente'}
+                                                            disabled={row.adeudo <= 0}
                                                         />
                                                     )}
                                                 />
@@ -613,7 +584,7 @@ const CxcCrud = () => {
                 <Dialog 
                     visible={pagoEditDialog} 
                     onHide={() => setPagoEditDialog(false)}
-                    header={`Editar Abono del ${pagoEditado ? new Date(pagoEditado.fecha).toLocaleDateString() : ''}`}
+                    header={`Editar Abono del ${pagoEditado ? pagoEditado.fecha?.split('T')[0].split('-').reverse().join('-') : ''}`}
                     style={{ width: '450px' }}
                 >
                     <div className="p-fluid">
@@ -629,8 +600,18 @@ const CxcCrud = () => {
                                 min={0}
                             />
                         </div>
+
+                        <div className="field">
+                            <label htmlFor="referencia">Descripción</label>
+                            <InputText
+                                id="referencia"
+                                value={nuevaReferencia}
+                                onChange={(e) => setNuevaReferencia(e.target.value)}
+                                placeholder="Descripción del abono"
+                            />
+                        </div>
                     </div>
-                    
+
                     <div className="flex justify-content-end gap-2 mt-4">
                         <Button 
                             label="Cancelar" 
@@ -645,35 +626,6 @@ const CxcCrud = () => {
                         />
                     </div>
                 </Dialog>
-                {/* Diálogo para registrar pago */}
-                {/* <Dialog 
-                    visible={pagoDialog} 
-                    onHide={() => setPagoDialog(false)}
-                    header="Registrar Pago"
-                    footer={
-                        <div>
-                            <Button label="Cancelar" icon="pi pi-times" onClick={() => setPagoDialog(false)} className="p-button-text" />
-                            <Button label="Registrar" icon="pi pi-check" onClick={registrarPagoCliente} autoFocus />
-                        </div>
-                    }
-                >
-                    <div className="p-fluid">
-                        <div className="field">
-                            <label htmlFor="monto">Monto del Pago</label>
-                            <InputNumber
-                                id="monto"
-                                value={montoPago}
-                                onValueChange={(e) => setMontoPago(e.value || 0)}
-                                mode="currency"
-                                currency="MXN"
-                                locale="es-MX"
-                                min={0}
-                                max={cuentaSeleccionada?.saldo || 0}
-                            />
-                        </div>
-                        <small>Saldo actual: {formatCurrency(cuentaSeleccionada?.saldo || 0)}</small>
-                    </div>
-                </Dialog> */}
                 <Dialog 
                     visible={pagoDialog}
                     onHide={() => setPagoDialog(false)}
@@ -732,11 +684,12 @@ const CxcCrud = () => {
                             <label htmlFor="fechaPago">Fecha de Pago Esperado</label>
                             <Calendar
                                 id="fechaPago"
-                                value={fechaPagoEdit}
-                                onChange={(e) => setFechaPagoEdit(e.value as Date)}
-                                dateFormat="dd/mm/yy"
+                                value={fechaPagoEdit ? new Date(fechaPagoEdit.getTime() + fechaPagoEdit.getTimezoneOffset() * 60000) : null}
+                                onChange={(e) => setFechaPagoEdit(e.value ?? null)}
+                                dateFormat="yy-mm-dd"
+                                placeholder="Fecha en formato YYYY-MM-DD"
                                 showIcon
-                                placeholder="Seleccione una fecha"
+                                showButtonBar
                             />
                         </div>
                         <small>Deje en blanco para eliminar la fecha</small>

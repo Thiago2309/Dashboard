@@ -1,0 +1,124 @@
+.recibo-container {
+  width: 74mm;
+  height: 105mm;
+  border: 1px solid #000;
+  padding: 5px;
+  box-sizing: border-box;
+  font-family: 'Arial', sans-serif;
+  font-size: 8px;
+  margin: 0;
+  position: relative;
+}
+
+.header {
+  text-align: center;
+  border-bottom: 1px solid #000;
+  padding-bottom: 3px;
+  margin-bottom: 3px;
+}
+
+.header h1 {
+  font-size: 9px;
+  margin: 0;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+.header h2 {
+  font-size: 8px;
+  margin: 0;
+  font-weight: bold;
+}
+
+.section {
+  margin-bottom: 3px;
+}
+
+.section-title {
+  font-weight: bold;
+  font-size: 8px;
+  border-bottom: 1px solid #000;
+  margin-bottom: 2px;
+}
+
+.data-row {
+  display: flex;
+  margin-bottom: 1px;
+}
+
+.data-label {
+  font-weight: bold;
+  width: 35%;
+}
+
+.data-value {
+  width: 65%;
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 7px;
+  margin-top: 2px;
+}
+
+th, td {
+  border: 1px solid #000;
+  padding: 1px;
+  text-align: left;
+}
+
+th {
+  background-color: #f0f0f0;
+  font-weight: bold;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-right {
+  text-align: right;
+}
+
+.signatures {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 5px;
+  border-top: 1px solid #000;
+  padding-top: 3px;
+}
+
+.signature-box {
+  width: 45%;
+  text-align: center;
+}
+
+.signature-line {
+  border-top: 1px solid #000;
+  margin-top: 15px;
+  padding-top: 2px;
+}
+
+.footer {
+  position: absolute;
+  bottom: 5px;
+  width: calc(100% - 10px);
+  font-size: 6px;
+  text-align: center;
+}
+
+@media print {
+  body {
+    width: 74mm;
+    height: 105mm;
+    margin: 0;
+    padding: 0;
+  }
+  
+  .recibo-container {
+    box-shadow: none;
+    margin: 0;
+    padding: 5px;
+  }
+}
