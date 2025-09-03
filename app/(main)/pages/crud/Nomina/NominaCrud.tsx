@@ -710,12 +710,12 @@ const NominaModule = () => {
     };
 
     const actionBodyTemplate = (rowData: any) => {
-        const componentRef = useRef<HTMLDivElement>(null);
+        // const componentRef = useRef<HTMLDivElement>(null);
         
-        const handlePrint = useReactToPrint({
-            content: () => componentRef.current,
-            documentTitle: `Recibo_Nomina_${rowData.empleado_nombre}_Semana_${rowData.semana}_${rowData.anio}`,
-        });
+        // const handlePrint = useReactToPrint({
+        //     content: () => componentRef.current,
+        //     documentTitle: `Recibo_Nomina_${rowData.empleado_nombre}_Semana_${rowData.semana}_${rowData.anio}`,
+        // });
 
         return (
             <div className="flex gap-1">
@@ -729,7 +729,7 @@ const NominaModule = () => {
                     disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
                     className="p-button-sm"
                 />
-                <Button 
+                {/* <Button 
                     icon="pi pi-file-pdf" 
                     rounded 
                     severity="info"
@@ -740,10 +740,10 @@ const NominaModule = () => {
                     disabled={!rowData.empleado_nombre}
                 />
                 
-                {/* Componente de recibo (oculto) */}
+                {/* Componente de recibo (oculto) 
                 <div style={{ display: 'none' }}>
                     <ReciboNomina ref={componentRef} nomina={rowData} />
-                </div>
+                </div> */}
             </div>
         );
     };
