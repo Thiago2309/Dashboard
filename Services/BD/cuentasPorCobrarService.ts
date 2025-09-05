@@ -51,6 +51,7 @@ export const fetchTodosClientesConCuentas = async (): Promise<ResumenCliente[]> 
         .select(`
             id,
             empresa,
+            porcentaje_administrativo,
             cuentas_por_cobrar (
                 id,
                 monto
@@ -81,7 +82,14 @@ export const fetchTodosClientesConCuentas = async (): Promise<ResumenCliente[]> 
         const totalMontoPagado = cliente.cuentas_por_cobrar
             ?.reduce((sum, cuenta) => sum + (cuenta.monto || 0), 0) || 0;
 
-        const totalHorasViaje = horasPorCliente[cliente.id] || 0;
+         // Calcular total de horas con descuento administrativo si aplica
+        let totalHorasViaje = horasPorCliente[cliente.id] || 0;
+        
+        // Aplicar porcentaje administrativo si existe
+        if (cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+            const porcentajeAdmin = cliente.porcentaje_administrativo / 100;
+            totalHorasViaje = totalHorasViaje * (1 - porcentajeAdmin);
+        }
 
         return {
             id_cliente: cliente.id,
@@ -280,7 +288,23 @@ export const fetchCuentasPorCliente = async (id_cliente: number): Promise<Cuenta
             .eq('id_cliente', id_cliente);
 
         if (errorViajes) throw errorViajes;       
-        const totalHorasViaje = viajes?.reduce((sum, viaje) => sum + (viaje.caphrsviajes || 0), 0) || 0;
+         // 2. Obtener información del cliente (incluyendo porcentaje administrativo)
+        const { data: cliente, error: errorCliente } = await supabase
+            .from('clientes')
+            .select('porcentaje_administrativo')
+            .eq('id', id_cliente)
+            .single();
+
+        if (errorCliente) throw errorCliente;
+        
+        // 3. Calcular total de horas de viaje
+        let totalHorasViaje = viajes?.reduce((sum, viaje) => sum + (viaje.caphrsviajes || 0), 0) || 0;
+        
+        // 4. Aplicar porcentaje administrativo si existe
+        if (cliente && cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+            const porcentajeAdmin = cliente.porcentaje_administrativo / 100;
+            totalHorasViaje = totalHorasViaje * (1 - porcentajeAdmin);
+        }
 
         // 2. Obtenemos cuentas existentes
         const { data: cuentas, error: errorCuentas } = await supabase

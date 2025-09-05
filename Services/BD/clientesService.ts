@@ -13,6 +13,7 @@ export interface Cliente {
     uso_cfdi?: string;
     regimen_fiscal?: string;
     obra?: string;
+    porcentaje_administrativo?: number;
     estatus?: number; // 1 = Activo, 0 = Inactivo
 }
 
@@ -29,6 +30,7 @@ const transformClienteData = (data: any): Cliente => ({
     uso_cfdi: data.uso_cfdi || '-',
     regimen_fiscal: data.regimen_fiscal || '-',
     obra: data.obra || '-',
+    porcentaje_administrativo: data.porcentaje_administrativo ?? 0,
     estatus: data.estatus ?? 1, // Default to 0 if not provided
 });
 
@@ -92,6 +94,7 @@ export const updateCliente = async (cliente: Cliente): Promise<Cliente> => {
             uso_cfdi: cliente.uso_cfdi,
             regimen_fiscal: cliente.regimen_fiscal,
             obra: cliente.obra,
+            porcentaje_administrativo: cliente.porcentaje_administrativo,
             estatus: cliente.estatus
         })
         .eq('id', cliente.id)

@@ -4,6 +4,7 @@ import { Column } from 'primereact/column';
 import { DataTable } from 'primereact/datatable';
 import { Dialog } from 'primereact/dialog';
 import { InputText } from 'primereact/inputtext';
+import { InputNumber } from 'primereact/inputnumber';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import { Dropdown } from 'primereact/dropdown';
@@ -24,6 +25,7 @@ const ClientesCrud = () => {
         regimen_fiscal: '',
         obra: '',
         estatus: undefined,
+        porcentaje_administrativo: 0,
     };
 
     const [clientesList, setClientesList] = useState<Cliente[]>([]);
@@ -264,6 +266,15 @@ const ClientesCrud = () => {
         );
     };
 
+    const porcentajeAdminBodyTemplate = (rowData: Cliente) => {
+        return (
+            <>
+                <span className="p-column-title">% Admin</span>
+                {rowData.porcentaje_administrativo ? `${rowData.porcentaje_administrativo}%` : '0%'}
+            </>
+        );
+    };
+
     const estatusBodyTemplate = (rowData: Cliente) => {
         return (
             <span className={`product-badge p-tag ${rowData.estatus ? 'p-tag-success' : 'p-tag-danger'}`}>
@@ -340,19 +351,20 @@ const ClientesCrud = () => {
                         <Column field="id" header="Id" sortable body={idBodyTemplate}></Column>
                         <Column field="empresa" header="Empresa" sortable body={empresaBodyTemplate}></Column>
                         <Column field="contacto" header="Contacto" sortable body={contactoBodyTemplate}></Column>
-                        <Column field="telefono" header="telefono" sortable body={TelefonoBodyTemplate}></Column>
+                        <Column field="telefono" header="Teléfono" sortable body={TelefonoBodyTemplate}></Column>
                         <Column field="direccion" header="Dirección" sortable body={direccionBodyTemplate}></Column>
                         <Column field="Tipo cliente" header="Tipo Cliente" sortable body={TipoClienteBodyTemplate}></Column>
                         <Column field="metodo_pago" header="Método Pago" sortable body={metodoPagoBodyTemplate}></Column>
                         <Column field="rfc" header="RFC" sortable body={rfcBodyTemplate}></Column>
                         <Column field="CFDI" header="CFDI" sortable body={cfdiBodyTemplate}></Column>
-                        <Column field="Regimen_Fiscal" header="Regimen Fiscal" sortable body={RegiFiscalBodyTemplate}></Column>
+                        <Column field="Regimen_Fiscal" header="Régimen Fiscal" sortable body={RegiFiscalBodyTemplate}></Column>
+                        <Column field="porcentaje_administrativo" header="% Admin" sortable body={porcentajeAdminBodyTemplate}></Column>
                         <Column field="Obra" header="Obra" sortable body={obraBodyTemplate}></Column>
                         <Column field="estatus" header="Status" sortable body={estatusBodyTemplate}></Column>
-                        <Column header="Accion" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column header="Acción" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={clienteDialog} style={{ width: '600px' }} header="Detalles de Cliente" modal className="p-fluid" footer={clienteDialogFooter} onHide={hideDialog}>
+                    <Dialog visible={clienteDialog} style={{ width: '650px' }} header="Detalles de Cliente" modal className="p-fluid" footer={clienteDialogFooter} onHide={hideDialog}>
                         <div className="field">
                             <label htmlFor="empresa">Empresa</label><span style={{ color: 'red' }}> *</span>
                             <InputText
@@ -455,6 +467,21 @@ const ClientesCrud = () => {
                                 </div>
                             </>
                         )}
+
+                        <div className="field">
+                            <label htmlFor="porcentaje_administrativo">% Administrativo</label>
+                            <InputNumber
+                                id="porcentaje_administrativo"
+                                value={cliente.porcentaje_administrativo || 0}
+                                onValueChange={(e) => setCliente({ ...cliente, porcentaje_administrativo: e.value || 0 })}
+                                mode="decimal"
+                                min={0}
+                                max={100}
+                                suffix="%"
+                                placeholder="Ej: 5%"
+                            />
+                            <small>Porcentaje que se aplicará a las cuentas por cobrar</small>
+                        </div>
 
                         <div className="field">
                             <label htmlFor="obra">Obra - Proyecto</label>
