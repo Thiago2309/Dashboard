@@ -17,7 +17,8 @@ import { createNomina, Nomina, updateNomina, fetchNominasPorSemana } from '../..
 import { fetchBonosActivos } from '../../../../../Services/BD/Nomina/bonosService';
 import * as XLSX from 'xlsx';
 import { useCallback } from 'react';
-import { ReciboNomina } from '../../../../../app/(main)/pages/crud/Nomina/reciboNomina';
+import { ReciboNominaPrint } from './recibo/ReciboNominaPrint';
+import { ModalVistaPrevia } from './recibo/ModalVistaPrevia';
 
 const NominaModule = () => {
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -38,6 +39,8 @@ const NominaModule = () => {
     const [anioActual, setAnioActual] = useState<number>(0);
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
+    const [showVistaPrevia, setShowVistaPrevia] = useState(false);
+    const [nominaParaVistaPrevia, setNominaParaVistaPrevia] = useState<any>(null);
 
     const metodosPago = [
         { label: 'Efectivo', value: 'efectivo' },
@@ -59,9 +62,11 @@ const NominaModule = () => {
         verificarNominaExistente();
     }, [fechaSeleccionada]);
 
+    // ************************************** FUNCIONES PARA CAMBIAR LA FECHA DE RANGO DE NOMINA *************************************
     const getStartOfWeek = (date: Date) => {
-        const day = date.getDay(); // 0 = Domingo, 1 = Lunes, ..., 4 = Jueves
-        const diff = date.getDate() - day + (day < 4 ? -2 : 4); // Ajustar para que jueves sea el inicio
+        const day = date.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
+        // Si es sábado (6), no hacemos ajuste, si no retrocedemos al sábado anterior
+        const diff = date.getDate() - day - (day === 7 ? 0 : 1);
         const newDate = new Date(date);
         newDate.setDate(diff);
         return newDate;
@@ -70,27 +75,26 @@ const NominaModule = () => {
     const getEndOfWeek = (date: Date) => {
         const start = getStartOfWeek(new Date(date));
         const end = new Date(start);
-        end.setDate(start.getDate() + 6); // 7 días después del jueves = jueves
+        end.setDate(start.getDate() + 6); // 6 días después del sábado = viernes
         return end;
     };
+    // ******************************************************************************************************************************
 
     const getWeekNumber = (date: Date) => {
-        // Clonar fecha para no modificar la original
         const tempDate = new Date(date.valueOf());
         
-        // Encontrar el jueves de esta semana
+        // Encontrar el sábado de esta semana
         const day = tempDate.getDay();
-        const diff = tempDate.getDate() - day + (day < 4 ? -2 : 4);
+        const diff = tempDate.getDate() - day + (day === 6 ? 0 : -1);
         tempDate.setDate(diff);
         
-        // Primer jueves del año
-        const firstThursday = new Date(tempDate.getFullYear(), 0, 1);
-        const firstDay = firstThursday.getDay();
-        const firstDiff = firstThursday.getDate() - firstDay + (firstDay < 4 ? -2 : 4);
-        firstThursday.setDate(firstDiff);
+        // Primer sábado del año
+        const firstSaturday = new Date(tempDate.getFullYear(), 0, 1);
+        const firstDay = firstSaturday.getDay();
+        const firstDiff = firstSaturday.getDate() - firstDay + (firstDay === 6 ? 0 : -1);
+        firstSaturday.setDate(firstDiff);
         
-        // Calcular diferencia en semanas
-        const diffTime = Math.abs(tempDate.getTime() - firstThursday.getTime());
+        const diffTime = Math.abs(tempDate.getTime() - firstSaturday.getTime());
         const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
         
         return diffWeeks + 1;
@@ -190,8 +194,6 @@ const NominaModule = () => {
             setVerificando(false);
         }
     };
-
-    // const calcularNomina = async () => {
     //     setCargando(true);
     //     try {
     //         const semana = getWeekNumber(fechaSeleccionada);
@@ -710,40 +712,33 @@ const NominaModule = () => {
     };
 
     const actionBodyTemplate = (rowData: any) => {
-        // const componentRef = useRef<HTMLDivElement>(null);
-        
-        // const handlePrint = useReactToPrint({
-        //     content: () => componentRef.current,
-        //     documentTitle: `Recibo_Nomina_${rowData.empleado_nombre}_Semana_${rowData.semana}_${rowData.anio}`,
-        // });
+        const handleVerRecibo = () => {
+            setNominaParaVistaPrevia(rowData);
+            setShowVistaPrevia(true);
+        };
 
         return (
             <div className="flex gap-1">
-                <Button 
-                    icon="pi pi-dollar" 
-                    rounded 
-                    severity="success"
-                    tooltip="Procesar pago"
-                    tooltipOptions={{ position: 'top' }}
-                    onClick={() => abrirDialogoPago(rowData)}
-                    disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
-                    className="p-button-sm"
-                />
-                {/* <Button 
-                    icon="pi pi-file-pdf" 
-                    rounded 
-                    severity="info"
-                    tooltip="Generar recibo"
-                    tooltipOptions={{ position: 'top' }}
-                    onClick={handlePrint}
-                    className="p-button-sm"
-                    disabled={!rowData.empleado_nombre}
-                />
-                
-                {/* Componente de recibo (oculto) 
-                <div style={{ display: 'none' }}>
-                    <ReciboNomina ref={componentRef} nomina={rowData} />
-                </div> */}
+            <Button 
+                icon="pi pi-dollar" 
+                rounded 
+                severity="success"
+                tooltip="Procesar pago"
+                tooltipOptions={{ position: 'top' }}
+                onClick={() => abrirDialogoPago(rowData)}
+                disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
+                className="p-button-sm"
+            />
+            <Button 
+                icon="pi pi-eye" 
+                rounded 
+                severity="info"
+                tooltip="Ver recibo"
+                tooltipOptions={{ position: 'top' }}
+                onClick={handleVerRecibo}
+                className="p-button-sm"
+                disabled={!rowData.empleado_nombre}
+            />
             </div>
         );
     };
@@ -848,7 +843,7 @@ const NominaModule = () => {
                             </Card>
 
                             {viajesSemana.length > 0 && (
-                                <Card title="Viajes de la Semana" className="mb-4">
+                                <Card title={`Viajes de la Semana (Total: ${viajesSemana.length})`} className="mb-4">
                                     <DataTable
                                         value={viajesSemana}
                                         paginator
@@ -918,13 +913,19 @@ const NominaModule = () => {
                             </div>
                         )}
                     </Dialog>
+                    {/* Modal de Vista Previa */}
+                    <ModalVistaPrevia 
+                        visible={showVistaPrevia}
+                        onHide={() => setShowVistaPrevia(false)}
+                        nomina={nominaParaVistaPrevia}
+                    />
                 </div>
             </div>
         </div>
     );
 };
 
-function useReactToPrint({ content, documentTitle }: { content: () => any; documentTitle: string; }) {
+    const useReactToPrint = ({ content, documentTitle }: { content: () => any; documentTitle: string; }) => {
     return useCallback(() => {
         const printContent = content();
         if (!printContent) return;
@@ -933,19 +934,41 @@ function useReactToPrint({ content, documentTitle }: { content: () => any; docum
         if (!printWindow) return;
 
         printWindow.document.write(`
-            <html>
-                <head>
-                    <title>${documentTitle}</title>
-                </head>
-                <body>
-                    ${printContent.outerHTML}
-                </body>
-            </html>
+        <html>
+            <head>
+            <title>${documentTitle}</title>
+            <style>
+                @media print {
+                body {
+                    background: white !important;
+                    margin: 0;
+                    padding: 0;
+                }
+                .payroll-receipt {
+                    position: absolute;
+                    left: 0;
+                    top: 0;
+                    width: 100%;
+                }
+                body > * {
+                    visibility: hidden;
+                }
+                .payroll-receipt,
+                .payroll-receipt * {
+                    visibility: visible;
+                }
+                }
+            </style>
+            </head>
+            <body>
+            ${printContent.outerHTML}
+            </body>
+        </html>
         `);
         printWindow.document.close();
         printWindow.focus();
         printWindow.print();
     }, [content, documentTitle]);
-}
+    };
 
 export default NominaModule;

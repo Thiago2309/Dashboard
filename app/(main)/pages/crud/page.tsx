@@ -12,6 +12,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
 import { DataTableFilterMeta } from 'primereact/datatable';
 import { InputNumber } from 'primereact/inputnumber';
+import { Checkbox } from 'primereact/checkbox';
 
 const Crud = () => {
     let emptyViaje: Viaje = {
@@ -25,6 +26,8 @@ const Crud = () => {
         caphrsviajes: null,
         id_operador: null,
         operador_nombre: '',
+        en_renta: false,
+        horas_renta: null
     };
 
     const [viajes, setViajes] = useState<Viaje[]>([]);
@@ -100,7 +103,7 @@ const Crud = () => {
 
     const saveViaje = async () => {
         setSubmitted(true);
-    
+
         if (
             viaje.folio_bco.trim() &&
             viaje.folio.trim() &&
@@ -111,22 +114,37 @@ const Crud = () => {
             viaje.fecha
         ) {
             try {
+                // Validar que si está en renta, tenga horas
+                if (viaje.en_renta && (!viaje.horas_renta || viaje.horas_renta <= 0)) {
+                    toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Las horas de renta son requeridas cuando el camión está en renta', life: 3000 });
+                    return;
+                }
+
                 // Obtener el precio_unidad y metros_cubicos
                 const precioOrigenDestino = preciosOrigenDestino.find(p => p.id === viaje.id_precio_origen_destino);
                 const m3 = m3Options.find(m => m.id === viaje.id_m3);
-    
+
                 if (precioOrigenDestino && m3) {
                     const precio_unidad = precioOrigenDestino.precio_unidad;
                     const metros_cubicos = m3.metros_cubicos;
-    
-                    // Calcular caphrsviajes
-                    const caphrsviajes = precio_unidad * metros_cubicos;
-    
+
+                    // Calcular caphrsviajes - MODIFICADO PARA RENTA
+                    let caphrsviajes;
+                    if (viaje.en_renta && viaje.horas_renta) {
+                        // Si está en renta: precio_unidad * horas_renta
+                        caphrsviajes = precio_unidad * metros_cubicos * viaje.horas_renta;
+                    } else {
+                        // Si no está en renta: precio_unidad * metros_cubicos (comportamiento original)
+                        caphrsviajes = precio_unidad * metros_cubicos;
+                    }
+
                     console.log('precio_unidad:', precio_unidad);
                     console.log('metros_cubicos:', metros_cubicos);
+                    console.log('en_renta:', viaje.en_renta);
+                    console.log('horas_renta:', viaje.horas_renta);
                     console.log('caphrsviajes:', caphrsviajes);
-    
-                    // Crear un objeto limpio solo con las columnas de la tabla viajes
+
+                    // Crear un objeto limpio con los nuevos campos
                     const viajeLimpio = {
                         id_cliente: viaje.id_cliente,
                         fecha: viaje.fecha,
@@ -136,11 +154,13 @@ const Crud = () => {
                         id_material: viaje.id_material,
                         id_m3: viaje.id_m3,
                         caphrsviajes,
-                        id_operador: viaje.id_operador
+                        id_operador: viaje.id_operador,
+                        en_renta: viaje.en_renta, // Nuevo campo
+                        horas_renta: viaje.en_renta ? viaje.horas_renta : null // Solo guardar horas si está en renta
                     };
-    
-                    console.log('Objeto enviado a Supabase:', { ...viajeLimpio, id: viaje.id }); // Verifica que el id esté incluido
-    
+
+                    console.log('Objeto enviado a Supabase:', { ...viajeLimpio, id: viaje.id });
+
                     if (viaje.id) {
                         const updatedViaje = await updateViaje({ ...viajeLimpio, id: viaje.id });
                         setViajes(viajes.map(v => v.id === updatedViaje.id ? updatedViaje : v));
@@ -150,7 +170,7 @@ const Crud = () => {
                         setViajes([...viajes, newViaje]);
                         toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Viaje Creado', life: 3000 });
                     }
-                    fetchViajes().then(setViajes); //MANDA A LLAMAR LA TABLA
+                    fetchViajes().then(setViajes);
                     setViajeDialog(false);
                     setViaje(emptyViaje);
                 } else {
@@ -328,6 +348,25 @@ const Crud = () => {
         );
     };
 
+    const rentaBodyTemplate = (rowData: Viaje) => {
+        return (
+            <>
+                <span className="p-column-title">Renta</span>
+                {rowData.en_renta ? (
+                    <div className="flex align-items-center">
+                        <i className="pi pi-check-circle text-green-500 mr-2" />
+                        <span>{rowData.horas_renta?.toFixed(2)} hrs</span>
+                    </div>
+                ) : (
+                    <div className="flex align-items-center">
+                        <i className="pi pi-times-circle text-red-500 mr-2" />
+                        <span>No</span>
+                    </div>
+                )}
+            </>
+        );
+    };
+
     const actionBodyTemplate = (rowData: Viaje) => {
         return (
             <>
@@ -444,6 +483,7 @@ const Crud = () => {
                         <Column field="destino" header="Destino" sortable body={destinoBodyTemplate}></Column>
                         <Column field="material_nombre" header="Material" sortable body={materialBodyTemplate}></Column>
                         <Column field="m3_nombre" header="M3" sortable body={m3BodyTemplate}></Column>
+                        <Column field="en_renta" header="Renta" sortable body={rentaBodyTemplate}></Column>
                         <Column field="caphrsviajes" header="Precio" sortable body={caphrsviajesBodyTemplate} style={{ width: '150px', minWidth: '120px' }}></Column>
                         <Column header="Acción" body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
                     </DataTable>
@@ -572,6 +612,44 @@ const Crud = () => {
                             />
                             {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                         </div>
+                        <br />
+                        {/* Campo para renta */}
+                        <div className="field">
+                            <label htmlFor="en_renta" className="block mb-2">
+                                <Checkbox
+                                    id="en_renta"
+                                    checked={viaje.en_renta}
+                                    onChange={(e) => setViaje({ 
+                                        ...viaje, 
+                                        en_renta: e.checked ?? false,
+                                        horas_renta: e.checked ? (viaje.horas_renta || 0) : null
+                                    })}
+                                />
+                                <span className="ml-2">¿El camión está en renta?</span>
+                            </label>
+                        </div>
+
+                        {/* Campo para horas de renta - solo visible si está en renta */}
+                        {viaje.en_renta && (
+                            <div className="field">
+                                <label htmlFor="horas_renta">Horas de Renta</label>
+                                <InputNumber
+                                    id="horas_renta"
+                                    value={viaje.horas_renta ?? 0}
+                                    onValueChange={(e) => setViaje({ ...viaje, horas_renta: e.value ?? 0 })}
+                                    mode="decimal"
+                                    min={0}
+                                    minFractionDigits={2}
+                                    maxFractionDigits={2}
+                                    placeholder="0.00"
+                                    required={viaje.en_renta}
+                                    className={submitted && viaje.en_renta && !viaje.horas_renta ? 'p-invalid' : ''}
+                                />
+                                {submitted && viaje.en_renta && !viaje.horas_renta && (
+                                    <small className="p-invalid">Las horas de renta son requeridas cuando el camión está en renta.</small>
+                                )}
+                            </div>
+                        )}
                         <div className="field">
                             {viaje.id && ( // Solo muestra el campo si viaje.id existe (modo update)
                                 <>

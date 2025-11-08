@@ -1,5 +1,6 @@
 import { ReactNode } from 'react';
 import { supabase } from '../superbase.service';
+import { CajaChica, createCajaChica } from './cajaChicaService'; // Ajusta la ruta
 
 export interface CuentaPorCobrar {
     adeudo?: number; // Diferencia entre saldo y abonos (saldo - monto)
@@ -459,13 +460,85 @@ export const crearCuentaInicialParaCliente = async (id_cliente: number, empresa:
     }
 };
 
+// export const registrarPagoConHistorial = async (
+//     id_cuenta: number,
+//     monto: number,
+//     metodo_pago: string = 'Efectivo',
+//     referencia?: string
+// ) => {
+//     // 1. Registrar el pago en la tabla 'pagos'
+//     const { error: errorPago } = await supabase
+//         .from('pagos')
+//         .insert({
+//             id_cuenta,
+//             monto,
+//             metodo_pago,
+//             referencia
+//         });
+
+//     if (errorPago) throw errorPago;
+
+//     // 2. Obtener la cuenta COMPLETA
+//     const { data: cuenta, error: errorCuenta } = await supabase
+//         .from('cuentas_por_cobrar')
+//         .select('*')
+//         .eq('id', id_cuenta)
+//         .single();
+
+//     if (errorCuenta) throw errorCuenta;
+
+//     // 3. Sumar TODOS los pagos hechos a esta cuenta
+//     const { data: pagos, error: errorPagos } = await supabase
+//         .from('pagos')
+//         .select('monto')
+//         .eq('id_cuenta', id_cuenta);
+
+//     if (errorPagos) throw errorPagos;
+
+//     // Sumar los montos
+//     const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
+    
+//     // 4. Calcular el adeudo REAL (evitando cero negativo)
+//     const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
+//     const adeudoActual = Math.max(0, Number((deudaTotal - totalPagado).toFixed(2)));
+//     const nuevoEstatus = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
+
+//     // 5. Actualizar la cuenta
+//     const { error } = await supabase
+//         .from('cuentas_por_cobrar')
+//         .update({
+//             monto: totalPagado,
+//             saldo: deudaTotal,
+//             estatus: nuevoEstatus,
+//             metodo_pago: metodo_pago,
+//             fecha_pago: nuevoEstatus === 'Pagado' ? new Date().toISOString() : null
+//         })
+//         .eq('id', id_cuenta);
+
+//     if (error) throw error;
+// };
+
 export const registrarPagoConHistorial = async (
     id_cuenta: number,
     monto: number,
     metodo_pago: string = 'Efectivo',
     referencia?: string
 ) => {
-    // 1. Registrar el pago en la tabla 'pagos'
+    // 1. Obtener información del cliente/empresa para la descripción
+    const { data: cuentaInfo, error: errorInfo } = await supabase
+        .from('cuentas_por_cobrar')
+        .select(`
+            *,
+            clientes (
+                empresa
+            )
+        `)
+        .eq('id', id_cuenta)
+        .single();
+
+    if (errorInfo) throw errorInfo;
+
+    // 2. Registrar el pago en la tabla 'pagos'
     const { error: errorPago } = await supabase
         .from('pagos')
         .insert({
@@ -477,7 +550,7 @@ export const registrarPagoConHistorial = async (
 
     if (errorPago) throw errorPago;
 
-    // 2. Obtener la cuenta COMPLETA
+    // 3. Obtener la cuenta COMPLETA
     const { data: cuenta, error: errorCuenta } = await supabase
         .from('cuentas_por_cobrar')
         .select('*')
@@ -486,7 +559,7 @@ export const registrarPagoConHistorial = async (
 
     if (errorCuenta) throw errorCuenta;
 
-    // 3. Sumar TODOS los pagos hechos a esta cuenta
+    // 4. Sumar TODOS los pagos hechos a esta cuenta
     const { data: pagos, error: errorPagos } = await supabase
         .from('pagos')
         .select('monto')
@@ -497,12 +570,12 @@ export const registrarPagoConHistorial = async (
     // Sumar los montos
     const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
     
-    // 4. Calcular el adeudo REAL (evitando cero negativo)
+    // 5. Calcular el adeudo REAL (evitando cero negativo)
     const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
     const adeudoActual = Math.max(0, Number((deudaTotal - totalPagado).toFixed(2)));
     const nuevoEstatus = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
 
-    // 5. Actualizar la cuenta
+    // 6. Actualizar la cuenta
     const { error } = await supabase
         .from('cuentas_por_cobrar')
         .update({
@@ -515,6 +588,24 @@ export const registrarPagoConHistorial = async (
         .eq('id', id_cuenta);
 
     if (error) throw error;
+
+    // 7. CREAR REGISTRO EN CAJA CHICA COMO ABONO
+    try {
+        const nombreCliente = cuentaInfo.clientes?.empresa || 'Cliente';
+        
+        const registroCajaChica: Omit<CajaChica, 'id'> = {
+            fecha: new Date().toISOString().split('T')[0], // Fecha actual
+            descripcion: `ABONO - ${nombreCliente}`,
+            ingreso: monto,
+            egreso: null
+        };
+
+        await createCajaChica(registroCajaChica);
+        console.log('Registro de ingreso creado en caja chica automáticamente');
+    } catch (error) {
+        console.error('Error creando registro en caja chica para pago:', error);
+        // No lanzamos el error para no afectar el registro del pago
+    }
 };
 
 export const fetchHistorialPagos = async (id_cuenta: number) => {
@@ -530,6 +621,77 @@ export const fetchHistorialPagos = async (id_cuenta: number) => {
 
 
 // ACTUALIZAR ABONO DEL HISTORIAL DE ABONOS
+// export const actualizarPago = async (
+//     idPago: number,
+//     nuevoMonto: number,
+//     nuevoEstatus: string,
+//     metodo_pago: string,
+//     nuevaReferencia: string
+// ): Promise<void> => {
+//     // 1. Actualizar el pago individual
+//     const { error: errorActualizacion } = await supabase
+//         .from('pagos')
+//         .update({ 
+//             monto: nuevoMonto,
+//             referencia: nuevaReferencia,
+//             fecha: new Date().toISOString().split('T')[0],
+//         })
+//         .eq('id', idPago);
+
+//     if (errorActualizacion) throw errorActualizacion;
+
+//     // 2. Obtener la cuenta asociada
+//     const { data: pagoActualizado, error: errorPago } = await supabase
+//         .from('pagos')
+//         .select('id_cuenta')
+//         .eq('id', idPago)
+//         .single();
+
+//     if (errorPago) throw errorPago;
+
+//     const idCuenta = pagoActualizado?.id_cuenta;
+//     if (!idCuenta) throw new Error('El pago no tiene una cuenta asociada');
+
+//     // 3. Obtener la cuenta COMPLETA
+//     const { data: cuenta, error: errorCuentaData } = await supabase
+//         .from('cuentas_por_cobrar')
+//         .select('*')
+//         .eq('id', idCuenta)
+//         .single();
+
+//     if (errorCuentaData) throw errorCuentaData;
+
+//     // 4. Recalcular TODOS los pagos
+//     const { data: pagos, error: errorPagosCuenta } = await supabase
+//         .from('pagos')
+//         .select('monto')
+//         .eq('id_cuenta', idCuenta);
+
+//     if (errorPagosCuenta) throw errorPagosCuenta;
+
+//     const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
+    
+//     // 5. Calcular el adeudo REAL
+//     const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
+//     const adeudoActual = deudaTotal - totalPagado;
+//     const estatusActualizado = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
+
+//     // 6. Actualizar la cuenta
+//     const { error: errorCuenta } = await supabase
+//         .from('cuentas_por_cobrar')
+//         .update({
+//             monto: totalPagado,
+//             saldo: deudaTotal, // ← Corregir el saldo
+//             estatus: estatusActualizado,
+//             metodo_pago,
+//             fecha_pago: estatusActualizado === 'Pagado' ? new Date().toISOString() : null
+//         })
+//         .eq('id', idCuenta);
+
+//     if (errorCuenta) throw errorCuenta;
+// };
+
+
 export const actualizarPago = async (
     idPago: number,
     nuevoMonto: number,
@@ -537,7 +699,37 @@ export const actualizarPago = async (
     metodo_pago: string,
     nuevaReferencia: string
 ): Promise<void> => {
-    // 1. Actualizar el pago individual
+    // 1. Obtener el pago actual para comparar montos
+    const { data: pagoActual, error: errorPagoActual } = await supabase
+        .from('pagos')
+        .select('*')
+        .eq('id', idPago)
+        .single();
+
+    if (errorPagoActual) throw errorPagoActual;
+
+    const montoAnterior = pagoActual.monto;
+    const idCuenta = pagoActual.id_cuenta;
+
+    if (!idCuenta) throw new Error('El pago no tiene una cuenta asociada');
+
+    // 2. Obtener información del cliente ANTES de actualizar
+    const { data: cuentaInfo, error: errorCuentaInfo } = await supabase
+        .from('cuentas_por_cobrar')
+        .select(`
+            *,
+            clientes (
+                empresa
+            )
+        `)
+        .eq('id', idCuenta)
+        .single();
+
+    if (errorCuentaInfo) throw errorCuentaInfo;
+
+    const nombreCliente = cuentaInfo.clientes?.empresa || 'Cliente';
+
+    // 3. Actualizar el pago individual
     const { error: errorActualizacion } = await supabase
         .from('pagos')
         .update({ 
@@ -549,19 +741,7 @@ export const actualizarPago = async (
 
     if (errorActualizacion) throw errorActualizacion;
 
-    // 2. Obtener la cuenta asociada
-    const { data: pagoActualizado, error: errorPago } = await supabase
-        .from('pagos')
-        .select('id_cuenta')
-        .eq('id', idPago)
-        .single();
-
-    if (errorPago) throw errorPago;
-
-    const idCuenta = pagoActualizado?.id_cuenta;
-    if (!idCuenta) throw new Error('El pago no tiene una cuenta asociada');
-
-    // 3. Obtener la cuenta COMPLETA
+    // 4. Obtener la cuenta COMPLETA
     const { data: cuenta, error: errorCuentaData } = await supabase
         .from('cuentas_por_cobrar')
         .select('*')
@@ -570,7 +750,7 @@ export const actualizarPago = async (
 
     if (errorCuentaData) throw errorCuentaData;
 
-    // 4. Recalcular TODOS los pagos
+    // 5. Recalcular TODOS los pagos
     const { data: pagos, error: errorPagosCuenta } = await supabase
         .from('pagos')
         .select('monto')
@@ -580,17 +760,17 @@ export const actualizarPago = async (
 
     const totalPagado = pagos?.reduce((total, p) => total + p.monto, 0) || 0;
     
-    // 5. Calcular el adeudo REAL
+    // 6. Calcular el adeudo REAL
     const deudaTotal = cuenta.saldo > 0 ? cuenta.saldo : cuenta.adeudo + totalPagado;
     const adeudoActual = deudaTotal - totalPagado;
     const estatusActualizado = adeudoActual <= 0 ? 'Pagado' : 'Pendiente';
 
-    // 6. Actualizar la cuenta
+    // 7. Actualizar la cuenta
     const { error: errorCuenta } = await supabase
         .from('cuentas_por_cobrar')
         .update({
             monto: totalPagado,
-            saldo: deudaTotal, // ← Corregir el saldo
+            saldo: deudaTotal,
             estatus: estatusActualizado,
             metodo_pago,
             fecha_pago: estatusActualizado === 'Pagado' ? new Date().toISOString() : null
@@ -598,4 +778,59 @@ export const actualizarPago = async (
         .eq('id', idCuenta);
 
     if (errorCuenta) throw errorCuenta;
+
+    // 8. ACTUALIZAR REGISTRO EN CAJA CHICA SI EL MONTO CAMBIÓ
+    if (montoAnterior !== nuevoMonto) {
+        try {
+            const descripcionBuscada = `INGRESO - ${nombreCliente}`;
+            
+            console.log(`Buscando registro en caja chica: ${descripcionBuscada}, monto anterior: ${montoAnterior}`);
+            
+            // Buscar el registro en caja chica
+            const { data: registrosCajaChica, error: errorBusqueda } = await supabase
+                .from('cajachica')
+                .select('*')
+                .eq('descripcion', descripcionBuscada)
+                .eq('ingreso', montoAnterior)
+                .limit(1);
+
+            if (errorBusqueda) {
+                console.error('Error buscando registro en caja chica:', errorBusqueda);
+            } else if (registrosCajaChica && registrosCajaChica.length > 0) {
+                console.log('Registro encontrado en caja chica, actualizando...');
+                
+                // Actualizar el registro existente
+                const { error: errorUpdateCaja } = await supabase
+                    .from('cajachica')
+                    .update({
+                        ingreso: nuevoMonto,
+                        fecha: new Date().toISOString().split('T')[0]
+                    })
+                    .eq('id', registrosCajaChica[0].id);
+
+                if (errorUpdateCaja) {
+                    console.error('Error actualizando registro en caja chica:', errorUpdateCaja);
+                } else {
+                    console.log('Registro de caja chica actualizado automáticamente');
+                }
+            } else {
+                // console.log('No se encontró registro en caja chica, creando nuevo...');
+                
+                // // Crear nuevo registro si no se encuentra
+                // const nuevoRegistroCajaChica: Omit<CajaChica, 'id'> = {
+                //     fecha: new Date().toISOString().split('T')[0],
+                //     descripcion: `INGRESO - ${nombreCliente}`,
+                //     ingreso: nuevoMonto,
+                //     egreso: null
+                // };
+
+                // await createCajaChica(nuevoRegistroCajaChica);
+                // console.log('Nuevo registro de caja chica creado');
+            }
+        } catch (error) {
+            console.error('Error actualizando registro en caja chica para pago:', error);
+        }
+    } else {
+        console.log('El monto no cambió, no se actualiza caja chica');
+    }
 };

@@ -7,6 +7,8 @@ import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import { Calendar } from 'primereact/calendar';
+import { InputNumber } from 'primereact/inputnumber';
+import { DataTableFilterMeta } from 'primereact/datatable';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchCajaChica, createCajaChica, updateCajaChica, deleteCajaChica, CajaChica } from '../../../../Services/BD/cajaChicaService';
 
@@ -25,7 +27,9 @@ const CajaChicaCrud = () => {
     const [cajaChica, setCajaChica] = useState<CajaChica>(emptyCajaChica);
     const [selectedCajaChicas, setSelectedCajaChicas] = useState<CajaChica[]>([]);
     const [submitted, setSubmitted] = useState(false);
-    const [globalFilter, setGlobalFilter] = useState('');
+    const [filters, setFilters] = useState<DataTableFilterMeta>({
+                global: { value: null, matchMode: 'contains' as const }
+            });
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
     const [saldoTotal, setSaldoTotal] = useState<number>(0);
@@ -221,7 +225,16 @@ const CajaChicaCrud = () => {
             <h5 className="m-0">Gestión de Caja Chica</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
+                <InputText
+                    type="search"
+                    onInput={(e) =>
+                        setFilters({
+                            ...filters,
+                            global: { value: e.currentTarget.value, matchMode: 'contains' }
+                        })
+                    }
+                    placeholder="Buscar..."
+                />
             </span>
         </div>
     );
@@ -252,7 +265,7 @@ const CajaChicaCrud = () => {
                 <div className="card mb-0">
                     <div className="flex justify-content-between mb-3">
                         <div>
-                            <span className="block text-500 font-medium mb-3">Total de Dinero</span>
+                            <span className="block text-500 font-medium mb-3">Resumen general del dinero de la empresa</span>
                             <div
                                 className="text-900 font-medium text-xl"
                                 style={{ color: saldoTotal >= 0 ? 'green' : 'red' }}
@@ -294,8 +307,9 @@ const CajaChicaCrud = () => {
                         className="datatable-responsive"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} Caja Chica"
-                        globalFilter={globalFilter}
-                        emptyMessage="No Caja Chica found."
+                        filters={filters} // PARA EL DE BUSQUEDA
+                        filterDisplay="menu"
+                        emptyMessage="No se encontraron resultados."
                         header={header}
                         responsiveLayout="scroll"
                     >
@@ -349,25 +363,33 @@ const CajaChicaCrud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="ingreso">Ingreso</label>
-                            <InputText
+                            <InputNumber
                                 id="ingreso"
-                                value={cajaChica.ingreso !== null && cajaChica.ingreso !== undefined ? cajaChica.ingreso.toString() : ''}
-                                onChange={(e) => {
-                                    const value = e.target.value.trim();
-                                    setCajaChica({ ...cajaChica, ingreso: value ? parseFloat(value) : null });
-                                }}
+                                value={cajaChica.ingreso}
+                                onValueChange={(e) => setCajaChica({ ...cajaChica, ingreso: e.value ?? null })}
+                                mode="currency"
+                                currency="MXN"   // puedes cambiarlo a "USD", "EUR", etc.
+                                locale="es-MX"   // formato local (coma, punto, símbolo $)
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
+                                required
+                                className="w-full"
                             />
                         </div>
 
                         <div className="field">
                             <label htmlFor="egreso">Egreso</label>
-                            <InputText
+                            <InputNumber
                                 id="egreso"
-                                value={cajaChica.egreso !== null && cajaChica.egreso !== undefined ? cajaChica.egreso.toString() : ''}
-                                onChange={(e) => {
-                                    const value = e.target.value.trim();
-                                    setCajaChica({ ...cajaChica, egreso: value ? parseFloat(value) : null });
-                                }}
+                                value={cajaChica.egreso}
+                                onValueChange={(e) => setCajaChica({ ...cajaChica, egreso: e.value ?? null })}
+                                mode="currency"
+                                currency="MXN"   // puedes cambiarlo a "USD", "EUR", etc.
+                                locale="es-MX"   // formato local (coma, punto, símbolo $)
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
+                                required
+                                className="w-full"
                             />
                         </div>
                     </Dialog>
@@ -377,7 +399,7 @@ const CajaChicaCrud = () => {
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
                             {cajaChica && (
                                 <span>
-                                    Are you sure you want to delete <b>{cajaChica.descripcion}</b>?
+                                    Esta seguro de eliminar ? <b>{cajaChica.descripcion}</b>?
                                 </span>
                             )}
                         </div>
@@ -386,7 +408,7 @@ const CajaChicaCrud = () => {
                     <Dialog visible={deleteCajaChicasDialog} style={{ width: '450px' }} header="Confirm" modal footer={deleteCajaChicasDialogFooter} onHide={hideDeleteCajaChicasDialog}>
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                            {cajaChica && <span>Are you sure you want to delete the selected Caja Chicas?</span>}
+                            {cajaChica && <span>Esta seguro de eliminar lo seleccionado de la Caja chica?</span>}
                         </div>
                     </Dialog>
                 </div>

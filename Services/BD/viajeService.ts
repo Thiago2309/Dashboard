@@ -17,6 +17,8 @@ export interface Viaje {
     caphrsviajes: number | null;
     id_operador?: number | null;
     operador_nombre?: string; // Hacer opcional
+    en_renta: boolean;
+    horas_renta: number | null;
 }
 
 // Helper function to transform Supabase response to Viaje interface
@@ -36,7 +38,9 @@ const transformViajeData = (data: any): Viaje => ({
     m3_nombre: data.m3?.m3_nombre || '',
     caphrsviajes: data.caphrsviajes,
     id_operador: data.id_operador,
-    operador_nombre: data.operador?.nombre || ''
+    operador_nombre: data.operador?.nombre || '',
+    en_renta: data.en_renta || false,
+    horas_renta: data.horas_renta
 });
 
 export const fetchViajes = async (): Promise<Viaje[]> => {
@@ -80,6 +84,8 @@ export const updateViaje = async (viaje: Viaje): Promise<Viaje> => {
             id_m3: viaje.id_m3,
             caphrsviajes: viaje.caphrsviajes,
             id_operador: viaje.id_operador,
+            en_renta: viaje.en_renta,
+            horas_renta: viaje.horas_renta
         })
         .eq('id', viaje.id)
         .select('*')

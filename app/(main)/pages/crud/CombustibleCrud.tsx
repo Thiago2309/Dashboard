@@ -8,6 +8,7 @@ import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import { Dropdown } from 'primereact/dropdown';
 import { Calendar } from 'primereact/calendar';
+import { DataTableFilterMeta } from 'primereact/datatable';
 import React, { useEffect, useRef, useState } from 'react';
 import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, Combustible, fetchViajes, fetchOperadores } from '../../../../Services/BD/combustibleService';
 import { InputNumber } from 'primereact/inputnumber';
@@ -28,7 +29,9 @@ const CombustibleCrud = () => {
     const [combustible, setCombustible] = useState<Combustible>(emptyCombustible);
     const [selectedCombustibles, setSelectedCombustibles] = useState<Combustible[]>([]);
     const [submitted, setSubmitted] = useState(false);
-    const [globalFilter, setGlobalFilter] = useState('');
+    const [filters, setFilters] = useState<DataTableFilterMeta>({
+        global: { value: null, matchMode: 'contains' as const }
+    });
     const toast = useRef<Toast>(null);
     const dt = useRef<DataTable<any>>(null);
     const [totalImporteCombustible, setTotalImporteCombustible] = useState<number>(0);
@@ -304,7 +307,16 @@ const CombustibleCrud = () => {
             <h5 className="m-0">Gestión de Combustible</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Search..." />
+                <InputText
+                    type="search"
+                    onInput={(e) =>
+                        setFilters({
+                            ...filters,
+                            global: { value: e.currentTarget.value, matchMode: 'contains' }
+                        })
+                    }
+                    placeholder="Buscar..."
+                />
             </span>
         </div>
     );
@@ -409,7 +421,8 @@ const CombustibleCrud = () => {
                         className="datatable-responsive"
                         paginatorTemplate="FirstPageLink PrevPageLink PageLinks NextPageLink LastPageLink CurrentPageReport RowsPerPageDropdown"
                         currentPageReportTemplate="Showing {first} to {last} of {totalRecords} combustibles"
-                        globalFilter={globalFilter}
+                        filters={filters} // PARA EL DE BUSQUEDA
+                        filterDisplay="menu"
                         emptyMessage="No combustibles found."
                         header={header}
                         responsiveLayout="scroll"

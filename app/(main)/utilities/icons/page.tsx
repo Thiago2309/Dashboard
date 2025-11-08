@@ -12,6 +12,9 @@ import { fetchClientesNotes, createCliente, updateCliente, Cliente } from '../..
 import {createViaje, updateViaje, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, Viaje } from '../../../../Services/BD/viajeService';
 import { getUserRoleIdFromLocalStorage } from '@/Services/BD/userService';
 import { RadioButton } from 'primereact/radiobutton';
+import { Checkbox } from 'primereact/checkbox';
+import { InputNumber } from 'primereact/inputnumber';
+import { createMaterial, Material } from '../../../../Services/BD/materialService';
 
 const userRoleId = getUserRoleIdFromLocalStorage();
 const isAlmacen = userRoleId === 4;
@@ -55,45 +58,55 @@ export default function GestionAreas() {
           <h2>Gestión de Clientes</h2>
           <FormularioCliente />
         </div>
+
+        {/* Formulario de material */}
+        <div className="card crud-demo p-4 mb-4">
+          <h2>Gestión de Material</h2>
+          <FormularioMaterial />
+        </div>
       </div>
     );
 }
 
 // Componente del Formulario de Nota de Viaje
 const FormularioNotaViaje = () => {
-  const [viaje, setViaje] = useState<Viaje>({
-      id_cliente: null,
-      fecha: '',
-      folio_bco: '',
-      folio: '',
-      id_precio_origen_destino: null,
-      id_material: null,
-      id_m3: null,
-      caphrsviajes: null,
-      id_operador: null,
-  });
-  const [clientes, setClientes] = useState<{ id?: number; empresa: string }[]>([]);
-  const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
-  const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
-  const [operadores, setOperadores] = useState<{ id: number; nombre: string }[]>([]);
-  const [m3, setM3] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
-  const [submitted, setSubmitted] = useState(false);
-  const toast = useRef<Toast>(null);
+    const [activeIndex, setActiveIndex] = useState(0);
+    const [viaje, setViaje] = useState<Viaje>({
+        id_cliente: null,
+        fecha: '',
+        folio_bco: '',
+        folio: '',
+        id_precio_origen_destino: null,
+        id_material: null,
+        id_m3: null,
+        caphrsviajes: null,
+        id_operador: null,
+        en_renta: false,
+        horas_renta: null
+    });
+    const [clientes, setClientes] = useState<{ id?: number; empresa: string }[]>([]);
+    const [preciosOrigenDestino, setPreciosOrigenDestino] = useState<{ id: number; label: string; precio_unidad: number }[]>([]);
+    const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
+    const [operadores, setOperadores] = useState<{ id: number; nombre: string }[]>([]);
+    const [m3, setM3] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
+    const [submitted, setSubmitted] = useState(false);
+    const toast = useRef<Toast>(null);
 
-  // Cargar datos iniciales (clientes, precios, materiales, m3)
-  useEffect(() => {
-      fetchClientesNotes().then(setClientes);
-      fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
-      fetchMateriales().then(setMateriales);
-      fetchM3().then(setM3);
-      fetchOperadores().then(setOperadores);
-  }, []);
+    // Cargar datos iniciales (clientes, precios, materiales, m3)
+    useEffect(() => {
+        fetchClientesNotes().then(setClientes);
+        fetchPreciosOrigenDestino().then(setPreciosOrigenDestino);
+        fetchMateriales().then(setMateriales);
+        fetchM3().then(setM3);
+        fetchOperadores().then(setOperadores);
+    }, []);
 
-  // Guardar o actualizar un viaje
-  const saveViaje = async () => {
-    setSubmitted(true);
+    // Guardar o actualizar un viaje
+    const saveViaje = async () => {
+        setSubmitted(true);
 
-    if (
+        // Validar campos requeridos
+        if (
         viaje.id_cliente !== null &&
         viaje.fecha &&
         viaje.folio_bco &&
@@ -102,187 +115,265 @@ const FormularioNotaViaje = () => {
         viaje.id_material !== null &&
         viaje.id_m3 !== null && 
         viaje.id_operador !== null
-    ) {
+        ) {
+        // Validar que si está en renta, tenga horas
+        if (viaje.en_renta && (!viaje.horas_renta || viaje.horas_renta <= 0)) {
+            toast.current?.show({ 
+            severity: 'error', 
+            summary: 'Error', 
+            detail: 'Las horas de renta son requeridas cuando el camión está en renta', 
+            life: 3000 
+            });
+            return;
+        }
+
         try {
             // Obtener el precio_unidad y metros_cubicos
             const precioOrigenDestino = preciosOrigenDestino.find(p => p.id === viaje.id_precio_origen_destino);
             const m3Seleccionado = m3.find(m => m.id === viaje.id_m3);
 
             if (precioOrigenDestino && m3Seleccionado) {
-                const precio_unidad = precioOrigenDestino.precio_unidad;
-                const metros_cubicos = m3Seleccionado.metros_cubicos;
+            const precio_unidad = precioOrigenDestino.precio_unidad;
+            const metros_cubicos = m3Seleccionado.metros_cubicos;
 
-                // Calcular caphrsviajes
-                const caphrsviajes = precio_unidad * metros_cubicos;
-
-                console.log('precio_unidad:', precio_unidad);
-                console.log('metros_cubicos:', metros_cubicos);
-                console.log('caphrsviajes:', caphrsviajes);
-
-                // Actualizar el estado del viaje con el cálculo
-                const viajeActualizado = {
-                    ...viaje,
-                    caphrsviajes: caphrsviajes,
-                };
-
-                // Guardar o actualizar el viaje
-                if (viaje.id) {
-                    const updatedViaje = await updateViaje(viajeActualizado);
-                    toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Viaje actualizado', life: 3000 });
-                } else {
-                    const newViaje = await createViaje(viajeActualizado);
-                    toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Viaje creado', life: 3000 });
-                }
-
-                // Reiniciar el formulario
-                setViaje({
-                    id_cliente: null,
-                    fecha: '',
-                    folio_bco: '',
-                    folio: '',
-                    id_precio_origen_destino: null,
-                    id_material: null,
-                    id_m3: null,
-                    caphrsviajes: null,
-                    id_operador: null,
-                });
-                setSubmitted(false);
+            // Calcular caphrsviajes - MODIFICADO PARA RENTA
+            let caphrsviajes;
+            if (viaje.en_renta && viaje.horas_renta) {
+                // Si está en renta: precio_unidad * horas_renta
+                caphrsviajes = precio_unidad * metros_cubicos * viaje.horas_renta;
             } else {
-                toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se encontró el precio o los metros cúbicos', life: 3000 });
+                // Si no está en renta: precio_unidad * metros_cubicos (comportamiento original)
+                caphrsviajes = precio_unidad * metros_cubicos;
+            }
+
+            console.log('precio_unidad:', precio_unidad);
+            console.log('metros_cubicos:', metros_cubicos);
+            console.log('en_renta:', viaje.en_renta);
+            console.log('horas_renta:', viaje.horas_renta);
+            console.log('caphrsviajes:', caphrsviajes);
+
+            // Actualizar el estado del viaje con el cálculo
+            const viajeActualizado = {
+                ...viaje,
+                caphrsviajes: caphrsviajes,
+            };
+
+            // Guardar o actualizar el viaje
+            if (viaje.id) {
+                const updatedViaje = await updateViaje(viajeActualizado);
+                toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Viaje actualizado', life: 3000 });
+            } else {
+                const newViaje = await createViaje(viajeActualizado);
+                toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Viaje creado', life: 3000 });
+            }
+
+            // Reiniciar el formulario
+            setViaje({
+                id_cliente: null,
+                fecha: '',
+                folio_bco: '',
+                folio: '',
+                id_precio_origen_destino: null,
+                id_material: null,
+                id_m3: null,
+                caphrsviajes: null,
+                id_operador: null,
+                en_renta: false,
+                horas_renta: null
+            });
+            setSubmitted(false);
+            } else {
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'No se encontró el precio o los metros cúbicos', life: 3000 });
             }
         } catch (error) {
+            console.error('Error saving viaje:', error);
             toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el viaje', life: 3000 });
         }
-    }
-};
+        }
+    };
 
-  return (
-      <div className="card p-4">
-          <Toast ref={toast} />
-          <TabView>
-              <TabPanel header="Datos Generales">
-                  <div className="p-fluid">
-                      <div className="field">
-                          <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
-                          <Calendar
-                              id="fecha"
-                              value={viaje.fecha ? new Date(viaje.fecha) : null}
-                              onChange={(e) => setViaje({ ...viaje, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
-                              dateFormat="yy-mm-dd"
-                              showIcon
-                              required
-                              className={submitted && !viaje.fecha ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.fecha && <small className="p-invalid">Fecha es requerida.</small>}
-                      </div>
-                      <div className="field">
-                          <label htmlFor="folio">Folio</label><span style={{ color: 'red' }}> *</span>
-                          <InputText
-                              id="folio"
-                              value={viaje.folio}
-                              onChange={(e) => setViaje({ ...viaje, folio: e.target.value })}
-                              required
-                              className={submitted && !viaje.folio ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.folio && <small className="p-invalid">Folio es requerido.</small>}
-                      </div>
-                      <div className="field">
-                          <label htmlFor="folio_bco">Folio Banco</label><span style={{ color: 'red' }}> *</span>
-                          <InputText
-                              id="folio_bco"
-                              value={viaje.folio_bco}
-                              onChange={(e) => setViaje({ ...viaje, folio_bco: e.target.value })}
-                              required
-                              className={submitted && !viaje.folio_bco ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.folio_bco && <small className="p-invalid">Folio Banco es requerido.</small>}
-                      </div>
-                      <div className="field">
-                          <label htmlFor="id_cliente">Cliente</label><span style={{ color: 'red' }}> *</span>
-                          <Dropdown
-                              id="id_cliente"
-                              value={viaje.id_cliente}
-                              options={clientes.map(c => ({ label: c.empresa, value: c.id }))}
-                              onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
-                              placeholder="Selecciona un cliente"
-                              required
-                              className={submitted && !viaje.id_cliente ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.id_cliente && <small className="p-invalid">Cliente es requerido.</small>}
-                      </div>
-                  </div>
-              </TabPanel>
-              <TabPanel header="Detalles del Viaje">
-                  <div className="p-fluid">
-                      <div className="field">
-                          <label htmlFor="id_precio_origen_destino">Origen - Destino</label><span style={{ color: 'red' }}> *</span>
-                          <Dropdown
-                            id="id_precio_origen_destino"
-                            value={viaje.id_precio_origen_destino}
-                            options={preciosOrigenDestino.map(p => ({
-                                label: `${p.label} - ($${p.precio_unidad?.toLocaleString('es-MX', { minimumFractionDigits: 2 }) ?? '0.00'})`,
-                                value: p.id,
-                                precio_unidad: p.precio_unidad
-                            }))}
-                            onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
-                            placeholder="Selecciona un origen-destino"
-                            required
-                            className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
-                            itemTemplate={(option) => (
-                                <div>
-                                    <span>{option.label}</span>
-                                </div>
-                            )}
+    return (
+        <div className="card p-4">
+            <Toast ref={toast} />
+            <TabView activeIndex={activeIndex} onTabChange={(e) => setActiveIndex(e.index)}>
+                <TabPanel header="Datos Generales">
+                <div className="p-fluid">
+                    <div className="field">
+                    <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
+                    <Calendar
+                        id="fecha"
+                        value={
+                            viaje.fecha
+                                ? (() => {
+                                    const [year, month, day] = viaje.fecha.split('-').map(Number);
+                                    return new Date(year, month - 1, day);
+                                })()
+                                : null
+                        }
+                        onChange={(e) =>
+                            setViaje({
+                                ...viaje,
+                                fecha: e.value
+                                    ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                    : ''
+                            })
+                        }
+                        dateFormat="yy-mm-dd"
+                        showIcon
+                        required
+                        className={submitted && !viaje.fecha ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.fecha && <small className="p-invalid">Fecha es requerida.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="folio">Folio</label><span style={{ color: 'red' }}> *</span>
+                    <InputText
+                        id="folio"
+                        value={viaje.folio}
+                        onChange={(e) => setViaje({ ...viaje, folio: e.target.value })}
+                        required
+                        className={submitted && !viaje.folio ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.folio && <small className="p-invalid">Folio es requerido.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="folio_bco">Folio Banco</label><span style={{ color: 'red' }}> *</span>
+                    <InputText
+                        id="folio_bco"
+                        value={viaje.folio_bco}
+                        onChange={(e) => setViaje({ ...viaje, folio_bco: e.target.value })}
+                        required
+                        className={submitted && !viaje.folio_bco ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.folio_bco && <small className="p-invalid">Folio Banco es requerido.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="id_cliente">Cliente</label><span style={{ color: 'red' }}> *</span>
+                    <Dropdown
+                        id="id_cliente"
+                        value={viaje.id_cliente}
+                        options={clientes.map(c => ({ label: c.empresa, value: c.id }))}
+                        onChange={(e) => setViaje({ ...viaje, id_cliente: e.value })}
+                        placeholder="Selecciona un cliente"
+                        required
+                        className={submitted && !viaje.id_cliente ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.id_cliente && <small className="p-invalid">Cliente es requerido.</small>}
+                    </div>
+                </div>
+                </TabPanel>
+                <TabPanel header="Detalles del Viaje">
+                <div className="p-fluid">
+                    <div className="field">
+                    <label htmlFor="id_precio_origen_destino">Origen - Destino</label><span style={{ color: 'red' }}> *</span>
+                    <Dropdown
+                        id="id_precio_origen_destino"
+                        value={viaje.id_precio_origen_destino}
+                        options={preciosOrigenDestino.map(p => ({
+                        label: `${p.label} - ($${p.precio_unidad?.toLocaleString('es-MX', { minimumFractionDigits: 2 }) ?? '0.00'})`,
+                        value: p.id,
+                        precio_unidad: p.precio_unidad
+                        }))}
+                        onChange={(e) => setViaje({ ...viaje, id_precio_origen_destino: e.value })}
+                        placeholder="Selecciona un origen-destino"
+                        required
+                        className={submitted && !viaje.id_precio_origen_destino ? 'p-invalid' : ''}
+                        itemTemplate={(option) => (
+                        <div>
+                            <span>{option.label}</span>
+                        </div>
+                        )}
+                    />
+                    {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen - Destino es requerido.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="id_material">Material</label><span style={{ color: 'red' }}> *</span>
+                    <Dropdown
+                        id="id_material"
+                        value={viaje.id_material}
+                        options={materiales.map(m => ({ label: m.nombre, value: m.id }))}
+                        onChange={(e) => setViaje({ ...viaje, id_material: e.value })}
+                        placeholder="Selecciona un material"
+                        required
+                        className={submitted && !viaje.id_material ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.id_material && <small className="p-invalid">Material es requerido.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="id_m3">Metros Cúbicos</label><span style={{ color: 'red' }}> *</span>
+                    <Dropdown
+                        id="id_m3"
+                        value={viaje.id_m3}
+                        options={m3.map(m => ({ label: m.nombre, value: m.id }))}
+                        onChange={(e) => setViaje({ ...viaje, id_m3: e.value })}
+                        placeholder="Selecciona m³"
+                        required
+                        className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.id_m3 && <small className="p-invalid">Metros Cúbicos es requerido.</small>}
+                    </div>
+                    <div className="field">
+                    <label htmlFor="id_operador">Operador</label><span style={{ color: 'red' }}> *</span>
+                    <Dropdown
+                        id="id_operador"
+                        value={viaje.id_operador}
+                        options={operadores.map(o => ({ label: o.nombre, value: o.id }))}
+                        onChange={(e) => setViaje({ ...viaje, id_operador: e.value })}
+                        placeholder="Selecciona un operador"
+                        required
+                        className={submitted && !viaje.id_operador ? 'p-invalid' : ''}
+                    />
+                    {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
+                    </div>
+                    
+                    {/* NUEVO: Campos para renta */}
+                    <div className="field">
+                    <label htmlFor="en_renta" className="block mb-2">
+                        <Checkbox
+                        id="en_renta"
+                        checked={viaje.en_renta}
+                        onChange={(e) => setViaje({ 
+                            ...viaje, 
+                            en_renta: e.checked ?? false,
+                            horas_renta: e.checked ? (viaje.horas_renta || 0) : null
+                        })}
                         />
-                          {submitted && !viaje.id_precio_origen_destino && <small className="p-invalid">Origen - Destino es requerido.</small>}
-                      </div>
-                      <div className="field">
-                          <label htmlFor="id_material">Material</label><span style={{ color: 'red' }}> *</span>
-                          <Dropdown
-                              id="id_material"
-                              value={viaje.id_material}
-                              options={materiales.map(m => ({ label: m.nombre, value: m.id }))}
-                              onChange={(e) => setViaje({ ...viaje, id_material: e.value })}
-                              placeholder="Selecciona un material"
-                              required
-                              className={submitted && !viaje.id_material ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.id_material && <small className="p-invalid">Material es requerido.</small>}
-                      </div>
-                      <div className="field">
-                          <label htmlFor="id_m3">Metros Cúbicos</label><span style={{ color: 'red' }}> *</span>
-                          <Dropdown
-                              id="id_m3"
-                              value={viaje.id_m3}
-                              options={m3.map(m => ({ label: m.nombre, value: m.id }))}
-                              onChange={(e) => setViaje({ ...viaje, id_m3: e.value })}
-                              placeholder="Selecciona m³"
-                              required
-                              className={submitted && !viaje.id_m3 ? 'p-invalid' : ''}
-                          />
-                          {submitted && !viaje.id_m3 && <small className="p-invalid">Metros Cúbicos es requerido.</small>}
-                      </div>
-                      <div className="operador">
-                            <label htmlFor="id_operador">Operador</label><span style={{ color: 'red' }}> *</span>
-                            <Dropdown
-                                id="id_operador"
-                                value={viaje.id_operador}
-                                options={operadores.map(o => ({ label: o.nombre, value: o.id }))}
-                                onChange={(e) => setViaje({ ...viaje, id_operador: e.value })}
-                                placeholder="Selecciona un operador"
-                                required
-                                className={submitted && !viaje.id_operador ? 'p-invalid' : ''}
-                            />
-                            {submitted && !viaje.id_operador && <small className="p-invalid">Operador es requerido.</small>}
-                      </div>
-                  </div>
-              </TabPanel>
-          </TabView>
-          <div className="flex justify-content-end mt-4">
-              <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveViaje} />
-          </div>
-      </div>
-  );
+                        <span className="ml-2">¿El camión está en renta?</span>
+                    </label>
+                    </div>
+
+                    {/* Campo para horas de renta - solo visible si está en renta */}
+                    {viaje.en_renta && (
+                    <div className="field">
+                        <label htmlFor="horas_renta">Horas de Renta</label><span style={{ color: 'red' }}> *</span>
+                        <InputNumber
+                        id="horas_renta"
+                        value={viaje.horas_renta ?? 0}
+                        onValueChange={(e) => setViaje({ ...viaje, horas_renta: e.value ?? 0 })}
+                        mode="decimal"
+                        min={0}
+                        minFractionDigits={2}
+                        maxFractionDigits={2}
+                        placeholder="0.00"
+                        required={viaje.en_renta}
+                        className={submitted && viaje.en_renta && !viaje.horas_renta ? 'p-invalid' : ''}
+                        />
+                        {submitted && viaje.en_renta && !viaje.horas_renta && (
+                        <small className="p-invalid">Las horas de renta son requeridas cuando el camión está en renta.</small>
+                        )}
+                    </div>
+                    )}
+                </div>
+                </TabPanel>
+            </TabView>
+            {/* Botón Guardar solo se muestra en la segunda pestaña */}
+            {activeIndex === 1 && (
+                <div className="flex justify-content-end mt-4">
+                    <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveViaje} />
+                </div>
+            )}
+        </div>
+    );
 };
 
 // Componente del Formulario de Gastos
@@ -341,15 +432,29 @@ const FormularioGastos = () => {
                   <div className="p-fluid">
                       <div className="field">
                           <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
-                          <Calendar
-                              id="fecha"
-                              value={gasto.fecha ? new Date(gasto.fecha) : null}
-                              onChange={(e) => setGasto({ ...gasto, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
-                              dateFormat="yy-mm-dd"
-                              showIcon
-                              required
-                              className={submitted && !gasto.fecha ? 'p-invalid' : ''}
-                          />
+                            <Calendar
+                                id="fecha"
+                                value={
+                                    gasto.fecha
+                                        ? (() => {
+                                            const [year, month, day] = gasto.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setGasto({
+                                        ...gasto,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
+                                dateFormat="yy-mm-dd"
+                                showIcon
+                                required
+                                className={submitted && !gasto.fecha ? 'p-invalid' : ''}
+                            />
                           {submitted && !gasto.fecha && <small className="p-invalid">Fecha es requerida.</small>}
                       </div>
                       <div className="field">
@@ -478,15 +583,29 @@ const FormularioCombustible = () => {
                   <div className="p-fluid">
                       <div className="field">
                           <label htmlFor="fecha">Fecha</label><span style={{ color: 'red' }}> *</span>
-                          <Calendar
-                              id="fecha"
-                              value={combustible.fecha ? new Date(combustible.fecha) : null}
-                              onChange={(e) => setCombustible({ ...combustible, fecha: e.value ? e.value.toISOString().split('T')[0] : '' })}
-                              dateFormat="yy-mm-dd"
-                              showIcon
-                              required
-                              className={submitted && !combustible.fecha ? 'p-invalid' : ''}
-                          />
+                            <Calendar
+                                id="fecha"
+                                value={
+                                    combustible.fecha
+                                        ? (() => {
+                                            const [year, month, day] = combustible.fecha.split('-').map(Number);
+                                            return new Date(year, month - 1, day);
+                                        })()
+                                        : null
+                                }
+                                onChange={(e) =>
+                                    setCombustible({
+                                        ...combustible,
+                                        fecha: e.value
+                                            ? `${e.value.getFullYear()}-${String(e.value.getMonth() + 1).padStart(2, '0')}-${String(e.value.getDate()).padStart(2, '0')}`
+                                            : ''
+                                    })
+                                }
+                                dateFormat="yy-mm-dd"
+                                showIcon
+                                required
+                                className={submitted && !combustible.fecha ? 'p-invalid' : ''}
+                            />
                           {submitted && !combustible.fecha && <small className="p-invalid">Fecha es requerida.</small>}
                       </div>
                       <div className="field">
@@ -772,6 +891,125 @@ const FormularioCliente = () => {
     
             <div className="flex justify-content-end mt-4">
             <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveCliente} />
+            </div>
+        </div>
+    );
+};
+
+// Componente principal
+const FormularioMaterial = () => {
+    const [material, setMaterial] = useState<Omit<Material, 'id' | 'created_at'>>({
+        nombre: '',
+        descripcion: '',
+    });
+    const [submitted, setSubmitted] = useState(false);
+    const [materiales, setMateriales] = useState<Material[]>([]);
+    const toast = useRef<Toast>(null);
+
+    // Cargar lista de materiales existentes (solo informativo)
+    useEffect(() => {
+        const loadMateriales = async () => {
+            try {
+                const data = await fetchMateriales();
+                setMateriales(data);
+            } catch {
+                toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al cargar materiales', life: 3000 });
+            }
+        };
+        loadMateriales();
+    }, []);
+
+    // Guardar nuevo material
+    const saveMaterial = async () => {
+        setSubmitted(true);
+
+        if (!material.nombre.trim()) {
+            toast.current?.show({ severity: 'warn', summary: 'Atención', detail: 'El nombre es obligatorio', life: 3000 });
+            return;
+        }
+
+        try {
+            await createMaterial(material);
+            toast.current?.show({ severity: 'success', summary: 'Éxito', detail: 'Material guardado con éxito', life: 3000 });
+
+            setMaterial({ nombre: '', descripcion: '' });
+            setSubmitted(false);
+
+            const updated = await fetchMateriales();
+            setMateriales(updated);
+        } catch (error) {
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error al guardar el material', life: 3000 });
+        }
+    };
+
+    return (
+        <div className="card p-4">
+            <Toast ref={toast} />
+
+            <TabView>
+                <TabPanel header="Registro de Materiales">
+                    <div className="p-fluid">
+                        {/* Nombre del material */}
+                        <div className="field">
+                            <label htmlFor="nombre">Nombre del Material</label><span style={{ color: 'red' }}> *</span>
+                            <InputText
+                                id="nombre"
+                                value={material.nombre}
+                                onChange={(e) => setMaterial({ ...material, nombre: e.target.value })}
+                                required
+                                className={submitted && !material.nombre ? 'p-invalid' : ''}
+                            />
+                            {submitted && !material.nombre && <small className="p-error">El nombre es requerido.</small>}
+                        </div>
+
+                        {/* Descripción */}
+                        <div className="field">
+                            <label htmlFor="descripcion">Descripción</label>
+                            <InputText
+                                id="descripcion"
+                                value={material.descripcion || ''}
+                                onChange={(e) => setMaterial({ ...material, descripcion: e.target.value })}
+                                placeholder="Descripción opcional"
+                            />
+                        </div>
+                    </div>
+                </TabPanel>
+            </TabView>
+
+            <div className="flex justify-content-end mt-4">
+                <Button label="Guardar" icon="pi pi-check" className="p-button-info mr-2" onClick={saveMaterial} />
+            </div>
+
+            {/* Lista simple de materiales */}
+           <div className="mt-5">
+                <h5>Materiales Registrados</h5>
+                <div
+                    className="grid gap-3 mt-3"
+                    style={{
+                        display: 'grid',
+                        gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))',
+                        gap: '1rem',
+                    }}
+                >
+                    {materiales.map((mat) => (
+                        <div
+                            key={mat.id}
+                            className="p-3 border-round shadow-1 surface-card text-center"
+                            style={{
+                                border: '1px solid #ddd',
+                                borderRadius: '10px',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                            }}
+                        >
+                            <b>{mat.nombre}</b>
+                            {mat.descripcion && (
+                                <p style={{ fontSize: '0.9rem', marginTop: '0.5rem', color: '#555' }}>
+                                    {mat.descripcion}
+                                </p>
+                            )}
+                        </div>
+                    ))}
+                </div>
             </div>
         </div>
     );

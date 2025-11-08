@@ -71,7 +71,7 @@ const TableModule = () => {
                             style={activeModule === 'Caja Negra' ? styles.activeMenuItem : styles.menuItem}
                             onClick={() => setActiveModule('Caja Negra')}
                         >
-                            Caja Negra
+                            Caja Chica
                         </div>
                         <div
                             style={activeModule === 'Precio Origen - Destino' ? styles.activeMenuItem : styles.menuItem}
