@@ -9,7 +9,7 @@ import { fetchViajes, fetchProveedores, createGasto, Gasto } from '../../../../S
 import { TabPanel, TabView } from 'primereact/tabview';
 import { fetchCombustible, createCombustible, updateCombustible, deleteCombustible, fetchOperadores, Combustible } from '../../../../Services/BD/combustibleService';
 import { fetchClientesNotes, createCliente, updateCliente, Cliente } from '../../../../Services/BD/clientesService';
-import {createViaje, updateViaje, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, Viaje } from '../../../../Services/BD/viajeService';
+import {createViaje, updateViaje, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, Viaje, checkFolioExists } from '../../../../Services/BD/viajeService';
 import { getUserRoleIdFromLocalStorage } from '@/Services/BD/userService';
 import { RadioButton } from 'primereact/radiobutton';
 import { Checkbox } from 'primereact/checkbox';
@@ -91,6 +91,7 @@ const FormularioNotaViaje = () => {
     const [m3, setM3] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [submitted, setSubmitted] = useState(false);
     const toast = useRef<Toast>(null);
+    const [folioError, setFolioError] = useState(false);
 
     // Cargar datos iniciales (clientes, precios, materiales, m3)
     useEffect(() => {
@@ -230,10 +231,32 @@ const FormularioNotaViaje = () => {
                     <InputText
                         id="folio"
                         value={viaje.folio}
-                        onChange={(e) => setViaje({ ...viaje, folio: e.target.value })}
+                        onChange={(e) => {
+                            setViaje({ ...viaje, folio: e.target.value });
+                            // Limpiar el estado de error si el usuario modifica el folio
+                            if (folioError) {
+                            setFolioError(false);
+                            }
+                        }}
+                        onBlur={async () => {
+                            if (viaje.folio && !viaje.id) { // Solo validar si hay folio
+                            const folioExists = await checkFolioExists(viaje.folio);
+                            if (folioExists) {
+                                setFolioError(true); // Activar estado de error
+                                toast.current?.show({ 
+                                severity: 'error', // Cambiado a 'error' en lugar de 'warn'
+                                summary: 'Error: Folio duplicado', 
+                                detail: `El folio "${viaje.folio}" ya existe. Por favor ingresa un folio diferente.`, 
+                                life: 5000 
+                                });
+                            } else {
+                                setFolioError(false); // Limpiar error si el folio es válido
+                            }
+                            }
+                        }}
                         required
-                        className={submitted && !viaje.folio ? 'p-invalid' : ''}
-                    />
+                        className={submitted && !viaje.folio ? 'p-invalid' : (folioError ? 'p-invalid' : '')}
+                        />
                     {submitted && !viaje.folio && <small className="p-invalid">Folio es requerido.</small>}
                     </div>
                     <div className="field">
@@ -633,26 +656,34 @@ const FormularioCombustible = () => {
                           {submitted && !combustible.id_operador && <small className="p-invalid">Operador es requerido.</small>}
                       </div>
                       <div className="field">
-                          <label htmlFor="litros">Litros</label><span style={{ color: 'red' }}> *</span>
-                          <InputText
-                              id="litros"
-                              value={combustible.litros?.toString() || ''}
-                              onChange={(e) => setCombustible({ ...combustible, litros: parseFloat(e.target.value) || null })}
-                              required
-                              className={submitted && !combustible.litros ? 'p-invalid' : ''}
-                          />
-                          {submitted && !combustible.litros && <small className="p-invalid">Litros es requerido.</small>}
+                        <label htmlFor="litros">Litros</label><span style={{ color: 'red' }}> *</span>
+                        <InputNumber
+                            id="litros"
+                            value={combustible.litros ?? null}
+                            onValueChange={(e) => setCombustible({ ...combustible, litros: e.value ?? null })}
+                            mode="decimal"
+                            minFractionDigits={2}
+                            maxFractionDigits={4} // Permite hasta 4 decimales
+                            required
+                            className={submitted && !combustible.litros ? 'p-invalid' : ''}
+                        />
+                            {submitted && !combustible.litros && <small className="p-invalid">Los litros son requeridos.</small>}
                       </div>
                       <div className="field">
                           <label htmlFor="importe">Importe</label><span style={{ color: 'red' }}> *</span>
-                          <InputText
-                              id="importe"
-                              value={combustible.importe?.toString() || ''}
-                              onChange={(e) => setCombustible({ ...combustible, importe: parseFloat(e.target.value) || null })}
-                              required
-                              className={submitted && !combustible.importe ? 'p-invalid' : ''}
-                          />
-                          {submitted && !combustible.importe && <small className="p-invalid">Importe es requerido.</small>}
+                          <InputNumber
+                                id="importe"
+                                value={combustible.importe ?? null}
+                                onValueChange={(e) => setCombustible({ ...combustible, importe: e.value ?? null })}
+                                mode="currency"
+                                currency="MXN"     // o USD, EUR, etc.
+                                locale="es-MX"     // formato mexicano: $ 1,234.56
+                                minFractionDigits={2}
+                                maxFractionDigits={2}
+                                required
+                                className={submitted && !combustible.importe ? 'p-invalid' : ''}
+                            />
+                            {submitted && !combustible.importe && <small className="p-invalid">Los importe son requeridos.</small>}
                       </div>
                   </div>
               </TabPanel>

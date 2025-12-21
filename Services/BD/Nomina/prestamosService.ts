@@ -18,6 +18,16 @@ export interface Prestamo {
   operador_nombre?: string;
 }
 
+export interface PagoPrestamo {
+    id?: number;
+    id_prestamo: number;
+    id_nomina?: number;
+    monto: number;
+    fecha_pago: string;
+    descripcion?: string;
+    created_at?: string;
+}
+
 export const fetchPrestamos = async (estatus?: string): Promise<Prestamo[]> => {
   let query = supabase
     .from('prestamos')
@@ -89,7 +99,7 @@ export const updatePrestamo = async (prestamo: Prestamo): Promise<Prestamo> => {
   };
 };
 
-export const aplicarPagoPrestamo = async (id: number, montoPago: number): Promise<void> => {
+export const aplicarPagoPrestamo = async (id: number, montoPago: number, idNomina?: number): Promise<void> => {
   const { data: prestamo, error: fetchError } = await supabase
     .from('prestamos')
     .select('*')
@@ -111,6 +121,20 @@ export const aplicarPagoPrestamo = async (id: number, montoPago: number): Promis
     .eq('id', id);
 
   if (updateError) throw updateError;
+
+    // Crear registro en pagos_prestamos
+    const { error: pagoError } = await supabase
+        .from('pagos_prestamos')
+        .insert([{
+            id_prestamo: id,
+            id_nomina: idNomina || null,
+            monto: montoPago,
+            fecha_pago: new Date().toISOString().split('T')[0],
+            descripcion: `Pago aplicado desde nómina${idNomina ? ` #${idNomina}` : ''}`,
+            created_at: new Date().toISOString()
+        }]);
+
+    if (pagoError) throw pagoError;
 };
 
 export const deletePrestamo = async (id: number): Promise<void> => {
@@ -120,4 +144,52 @@ export const deletePrestamo = async (id: number): Promise<void> => {
     .eq('id', id);
 
   if (error) throw error;
+};
+
+export const crearPagoPrestamo = async (pago: Omit<PagoPrestamo, 'id'>): Promise<PagoPrestamo> => {
+    const { data, error } = await supabase
+        .from('pagos_prestamos')
+        .insert([{
+            ...pago,
+            created_at: new Date().toISOString()
+        }])
+        .select()
+        .single();
+
+    if (error) throw error;
+    return data;
+};
+
+export const actualizarPagoPrestamo = async (id: number, montoPago: number, idNomina?: number): Promise<void> => {
+    const { data: prestamo, error: fetchError } = await supabase
+        .from('prestamos')
+        .select('*')
+        .eq('id', id)
+        .single();
+
+    if (fetchError) throw fetchError;
+
+    const nuevoSaldo = prestamo.saldo_pendiente - montoPago;
+    const nuevoEstatus = nuevoSaldo <= 0 ? 'Pagado' : prestamo.estatus;
+
+    // Actualizar préstamo
+    const { error: updateError } = await supabase
+        .from('prestamos')
+        .update({
+            saldo_pendiente: Math.max(0, nuevoSaldo),
+            estatus: nuevoEstatus,
+            updated_at: new Date().toISOString()
+        })
+        .eq('id', id);
+
+    if (updateError) throw updateError;
+
+    // Crear registro en historial de pagos
+    await crearPagoPrestamo({
+        id_prestamo: id,
+        id_nomina: idNomina,
+        monto: montoPago,
+        fecha_pago: new Date().toISOString().split('T')[0],
+        descripcion: `Pago aplicado desde nómina${idNomina ? ` #${idNomina}` : ''}`
+    });
 };

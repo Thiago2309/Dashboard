@@ -119,7 +119,7 @@ export const fetchClientes = async (): Promise<{ id: number; empresa: string }[]
 };
 
 export const fetchPreciosOrigenDestino = async (): Promise<{ id: number; label: string; precio_unidad: number }[]> => {
-    const { data, error } = await supabase.from('precio_origen_destino').select('id, nombreorigen, nombredestino, precio_unidad');
+    const { data, error } = await supabase.from('precio_origen_destino').select('id, nombreorigen, nombredestino, precio_unidad').eq('status', true);
     if (error) throw error;
     return data?.map(item => ({
         id: item.id,
@@ -166,4 +166,26 @@ export const fetchOperadores = async (): Promise<{id: number; nombre: string}[]>
         .select('id, nombre');
     if (error) throw error;
     return data || [];
+};
+
+export const checkFolioExists = async (folio: string): Promise<boolean> => {
+    try {
+        const { data, error } = await supabase
+            .from('viajes')
+            .select('id')
+            .eq('folio', folio)
+            .maybeSingle(); // Usamos maybeSingle para evitar errores cuando no hay resultados
+
+        if (error) {
+            console.error('Error al verificar folio:', error);
+            return false;
+        }
+
+        // Si data es null, no existe el folio
+        // Si data tiene un objeto, significa que existe
+        return data !== null;
+    } catch (error) {
+        console.error('Error al verificar folio:', error);
+        return false;
+    }
 };

@@ -45,7 +45,12 @@ export const fetchClientes = async (): Promise<Cliente[]> => {
         throw error;
     }
 
-    return data || [];
+    return (data || []).map(cliente => ({
+        ...cliente,
+        nombre: cliente.empresa,
+        empresa: cliente.empresa,
+        porcentaje_administrativo: cliente.porcentaje_administrativo || 0
+    }));
 };
 
 // Para las Notas

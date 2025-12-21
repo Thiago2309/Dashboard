@@ -7,14 +7,17 @@ import { InputText } from 'primereact/inputtext';
 import { Toast } from 'primereact/toast';
 import { Toolbar } from 'primereact/toolbar';
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchOrigenDestino, createOrigenDestino, updateOrigenDestino, deleteOrigenDestino, OrigenDestino } from '../../../../Services/BD/origenDestinoService';
+import { fetchOrigenDestino, createOrigenDestino, updateOrigenDestino, deleteOrigenDestino, OrigenDestino, toggleStatusOrigenDestino } from '../../../../Services/BD/origenDestinoService';
 import { InputNumber } from 'primereact/inputnumber';
+import { Tag } from 'primereact/tag';
+import { Checkbox } from 'primereact/checkbox';
 
 const OrigenDestinoCrud = () => {
     let emptyOrigenDestino: OrigenDestino = {
         nombreorigen: '',
         nombredestino: '',
         precio_unidad: 0,
+        status: true,
     };
 
     const [origenDestinoList, setOrigenDestinoList] = useState<OrigenDestino[]>([]);
@@ -73,6 +76,24 @@ const OrigenDestinoCrud = () => {
         }
     };
 
+    // Función para alternar status
+    const toggleStatus = async (origenDestino: OrigenDestino) => {
+        try {
+            const nuevoEstado = !origenDestino.status;
+            const updated = await toggleStatusOrigenDestino(origenDestino.id!, nuevoEstado);
+            setOrigenDestinoList(origenDestinoList.map(o => o.id === updated.id ? updated : o));
+            
+            toast.current?.show({ 
+                severity: 'success', 
+                summary: 'Successful', 
+                detail: `Origen Destino ${nuevoEstado ? 'activado' : 'desactivado'}`, 
+                life: 3000 
+            });
+        } catch (error) {
+            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error cambiando status', life: 3000 });
+        }
+    };
+
     const editOrigenDestino = (origenDestino: OrigenDestino) => {
         setOrigenDestino({ ...origenDestino });
         setOrigenDestinoDialog(true);
@@ -83,15 +104,29 @@ const OrigenDestinoCrud = () => {
         setDeleteOrigenDestinoDialog(true);
     };
 
+    // Modificada para deshabilitar en lugar de eliminar
     const deleteOrigenDestinoConfirmado = async () => {
         try {
-            await deleteOrigenDestino(origenDestino.id!);
-            setOrigenDestinoList(origenDestinoList.filter(o => o.id !== origenDestino.id));
+            // En lugar de eliminar, deshabilitamos
+            const deshabilitado = await toggleStatusOrigenDestino(origenDestino.id!, false);
+            setOrigenDestinoList(origenDestinoList.map(o => o.id === deshabilitado.id ? deshabilitado : o));
+            
             setDeleteOrigenDestinoDialog(false);
             setOrigenDestino(emptyOrigenDestino);
-            toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Origen Destino Deleted', life: 3000 });
+            
+            toast.current?.show({ 
+                severity: 'success', 
+                summary: 'Successful', 
+                detail: 'Origen Destino deshabilitado', 
+                life: 3000 
+            });
         } catch (error) {
-            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting Origen Destino', life: 3000 });
+            toast.current?.show({ 
+                severity: 'error', 
+                summary: 'Error', 
+                detail: 'Error deshabilitando Origen Destino', 
+                life: 3000 
+            });
         }
     };
 
@@ -103,15 +138,41 @@ const OrigenDestinoCrud = () => {
         setDeleteOrigenDestinosDialog(true);
     };
 
+    // Modificada para deshabilitar múltiples en lugar de eliminar
     const deleteSelectedOrigenDestinos = async () => {
         try {
-            await Promise.all(selectedOrigenDestinos.map(o => deleteOrigenDestino(o.id!)));
-            setOrigenDestinoList(origenDestinoList.filter(o => !selectedOrigenDestinos.includes(o)));
+            // Deshabilitar todos los seleccionados
+            await Promise.all(
+                selectedOrigenDestinos.map(o => 
+                    toggleStatusOrigenDestino(o.id!, false)
+                )
+            );
+            
+            // Actualizar la lista
+            setOrigenDestinoList(prev => 
+                prev.map(o => 
+                    selectedOrigenDestinos.some(s => s.id === o.id) 
+                        ? { ...o, status: false } 
+                        : o
+                )
+            );
+            
             setDeleteOrigenDestinosDialog(false);
             setSelectedOrigenDestinos([]);
-            toast.current?.show({ severity: 'success', summary: 'Successful', detail: 'Origen Destinos Deleted', life: 3000 });
+            
+            toast.current?.show({ 
+                severity: 'success', 
+                summary: 'Successful', 
+                detail: 'Origen Destinos deshabilitados', 
+                life: 3000 
+            });
         } catch (error) {
-            toast.current?.show({ severity: 'error', summary: 'Error', detail: 'Error deleting Origen Destinos', life: 3000 });
+            toast.current?.show({ 
+                severity: 'error', 
+                summary: 'Error', 
+                detail: 'Error deshabilitando Origen Destinos', 
+                life: 3000 
+            });
         }
     };
 
@@ -120,7 +181,7 @@ const OrigenDestinoCrud = () => {
             <React.Fragment>
                 <div className="my-2">
                     <Button label="Nuevo" icon="pi pi-plus" severity="info" className="mr-2" onClick={openNew} />
-                    <Button label="Eliminar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedOrigenDestinos || !selectedOrigenDestinos.length} />
+                    <Button label="Deshabilitar" icon="pi pi-trash" severity="danger" onClick={confirmDeleteSelected} disabled={!selectedOrigenDestinos || !selectedOrigenDestinos.length} />
                 </div>
             </React.Fragment>
         );
@@ -170,11 +231,44 @@ const OrigenDestinoCrud = () => {
         );
     };
 
+    // Template para columna de status
+    const statusBodyTemplate = (rowData: OrigenDestino) => {
+        return (
+            <>
+                <span className="p-column-title">Estado</span>
+                <Tag 
+                    value={rowData.status ? 'Activo' : 'Inactivo'} 
+                    severity={rowData.status ? 'success' : 'danger'} 
+                />
+            </>
+        );
+    };
+
     const actionBodyTemplate = (rowData: OrigenDestino) => {
         return (
             <>
-                <Button icon="pi pi-pencil" rounded severity="info" className="mr-2" onClick={() => editOrigenDestino(rowData)} />
-                <Button icon="pi pi-trash" rounded severity="danger" onClick={() => confirmDeleteOrigenDestino(rowData)} />
+                <Button 
+                    icon="pi pi-pencil" 
+                    rounded 
+                    severity="info" 
+                    className="mr-2" 
+                    onClick={() => editOrigenDestino(rowData)} 
+                />
+                <Button 
+                    icon={rowData.status ? "pi pi-eye-slash" : "pi pi-eye"} 
+                    rounded 
+                    severity="warning" 
+                    className="mr-2"
+                    onClick={() => toggleStatus(rowData)} 
+                    tooltip={rowData.status ? "Desactivar" : "Activar"}
+                    tooltipOptions={{ position: 'top' }}
+                />
+                <Button 
+                    icon="pi pi-trash" 
+                    rounded 
+                    severity="danger" 
+                    onClick={() => confirmDeleteOrigenDestino(rowData)} 
+                />
             </>
         );
     };
@@ -184,7 +278,11 @@ const OrigenDestinoCrud = () => {
             <h5 className="m-0">Gestión de Origen-Destino</h5>
             <span className="block mt-2 md:mt-0 p-input-icon-left">
                 <i className="pi pi-search" />
-                <InputText type="search" onInput={(e) => setGlobalFilter(e.currentTarget.value)} placeholder="Buscar..." />
+                <InputText 
+                    type="search" 
+                    onInput={(e) => setGlobalFilter(e.currentTarget.value)} 
+                    placeholder="Buscar..." 
+                />
             </span>
         </div>
     );
@@ -198,15 +296,15 @@ const OrigenDestinoCrud = () => {
 
     const deleteOrigenDestinoDialogFooter = (
         <>
-            <Button label="No" icon="pi pi-times" text onClick={hideDeleteOrigenDestinoDialog} />
-            <Button label="Sí" icon="pi pi-check" text onClick={deleteOrigenDestinoConfirmado} />
+            <Button label="Cancelar" icon="pi pi-times" text onClick={hideDeleteOrigenDestinoDialog} />
+            <Button label="Deshabilitar" icon="pi pi-check" text onClick={deleteOrigenDestinoConfirmado} />
         </>
     );
 
     const deleteOrigenDestinosDialogFooter = (
         <>
-            <Button label="No" icon="pi pi-times" text onClick={hideDeleteOrigenDestinosDialog} />
-            <Button label="Sí" icon="pi pi-check" text onClick={deleteSelectedOrigenDestinos} />
+            <Button label="Cancelar" icon="pi pi-times" text onClick={hideDeleteOrigenDestinosDialog} />
+            <Button label="Deshabilitar" icon="pi pi-check" text onClick={deleteSelectedOrigenDestinos} />
         </>
     );
 
@@ -239,10 +337,19 @@ const OrigenDestinoCrud = () => {
                         <Column field="nombreorigen" header="Origen" sortable body={nombreorigenBodyTemplate}></Column>
                         <Column field="nombredestino" header="Destino" sortable body={nombredestinoBodyTemplate}></Column>
                         <Column field="precio_unidad" header="Precio Unidad" sortable body={precio_unidadBodyTemplate}></Column>
-                        <Column body={actionBodyTemplate} headerStyle={{ minWidth: '10rem' }}></Column>
+                        <Column field="status" header="Estado" sortable body={statusBodyTemplate}></Column>
+                        <Column body={actionBodyTemplate} headerStyle={{ minWidth: '12rem' }}></Column>
                     </DataTable>
 
-                    <Dialog visible={origenDestinoDialog} style={{ width: '450px' }} header="Detalles de Origen-Destino" modal className="p-fluid" footer={origenDestinoDialogFooter} onHide={hideDialog}>
+                    <Dialog 
+                        visible={origenDestinoDialog} 
+                        style={{ width: '450px' }} 
+                        header="Detalles de Origen-Destino" 
+                        modal 
+                        className="p-fluid" 
+                        footer={origenDestinoDialogFooter} 
+                        onHide={hideDialog}
+                    >
                         <div className="field">
                             <label htmlFor="nombreorigen">Origen</label>
                             <InputText
@@ -274,26 +381,59 @@ const OrigenDestinoCrud = () => {
                                 mode="decimal"
                                 minFractionDigits={2}
                                 maxFractionDigits={2}
-                                />
-                            {submitted && !origenDestino.precio_unidad && <small className="p-invalid">Precio es requerido.</small>}
+                                min={0}
+                            />
+                            {submitted && origenDestino.precio_unidad <= 0 && <small className="p-invalid">Precio debe ser mayor a 0.</small>}
                         </div>
+                        {origenDestino.id && (
+                            <div className="field-checkbox">
+                                <Checkbox
+                                    inputId="status"
+                                    checked={origenDestino.status ?? true}
+                                    onChange={(e) => setOrigenDestino({ ...origenDestino, status: e.checked ?? true })}
+                                />
+                                <label htmlFor="status" className="ml-2">Activo</label>
+                            </div>
+                        )}
                     </Dialog>
 
-                    <Dialog visible={deleteOrigenDestinoDialog} style={{ width: '450px' }} header="Confirmar" modal footer={deleteOrigenDestinoDialogFooter} onHide={hideDeleteOrigenDestinoDialog}>
+                    <Dialog 
+                        visible={deleteOrigenDestinoDialog} 
+                        style={{ width: '450px' }} 
+                        header="Confirmar" 
+                        modal 
+                        footer={deleteOrigenDestinoDialogFooter} 
+                        onHide={hideDeleteOrigenDestinoDialog}
+                    >
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
                             {origenDestino && (
                                 <span>
-                                    ¿Estás seguro de eliminar <b>{origenDestino.nombreorigen} - {origenDestino.nombredestino}</b>?
+                                    ¿Estás seguro de deshabilitar <b>{origenDestino.nombreorigen} - {origenDestino.nombredestino}</b>?
+                                    <br />
+                                    <small>No aparecerá en los filtros pero permanecerá en la base de datos.</small>
                                 </span>
                             )}
                         </div>
                     </Dialog>
 
-                    <Dialog visible={deleteOrigenDestinosDialog} style={{ width: '450px' }} header="Confirmar" modal footer={deleteOrigenDestinosDialogFooter} onHide={hideDeleteOrigenDestinosDialog}>
+                    <Dialog 
+                        visible={deleteOrigenDestinosDialog} 
+                        style={{ width: '450px' }} 
+                        header="Confirmar" 
+                        modal 
+                        footer={deleteOrigenDestinosDialogFooter} 
+                        onHide={hideDeleteOrigenDestinosDialog}
+                    >
                         <div className="flex align-items-center justify-content-center">
                             <i className="pi pi-exclamation-triangle mr-3" style={{ fontSize: '2rem' }} />
-                            {origenDestino && <span>¿Estás seguro de eliminar los registros seleccionados?</span>}
+                            {origenDestino && (
+                                <span>
+                                    ¿Estás seguro de deshabilitar los {selectedOrigenDestinos.length} registros seleccionados?
+                                    <br />
+                                    <small>No aparecerán en los filtros pero permanecerán en la base de datos.</small>
+                                </span>
+                            )}
                         </div>
                     </Dialog>
                 </div>

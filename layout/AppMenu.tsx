@@ -25,8 +25,8 @@ const AppMenu = () => {
         {
             label: 'Gestion',
             items: [
+                { label: 'Rastreo GPS', icon: 'pi pi-fw pi-map-marker', url: 'https://primeflex.org/', target: '_blank' },
                 { label: 'Notas', icon: 'pi pi-book', to: '/utilities/icons' },
-                // { label: 'PrimeFlex', icon: 'pi pi-fw pi-desktop', url: 'https://primeflex.org/', target: '_blank' }
             ]
         },
         ...(isAlmacen || isAdmin
@@ -46,10 +46,10 @@ const AppMenu = () => {
                   {
                       label: 'Administración',
                       items: [
-                          { label: 'Viajes', icon: 'pi pi-fw pi-table', to: '/uikit/formlayout' },
-                          { label: 'Resumen', icon: 'pi pi-fw pi-check-square', to: '/uikit/input' },
-                          { label: 'Nomina', icon: 'pi pi-fw pi-bookmark', to: '/uikit/floatlabel' },
-                          // { label: 'Invalid State', icon: 'pi pi-fw pi-exclamation-circle', to: '/uikit/invalidstate' },
+                          { label: 'Viajes', icon: 'pi pi-fw pi-truck', to: '/uikit/formlayout' },
+                          { label: 'Resumen', icon: 'pi pi-fw pi-file', to: '/uikit/input' },
+                          { label: 'Nomina', icon: 'pi pi-fw pi-user', to: '/uikit/floatlabel' },
+                          { label: 'Estimaciones', icon: 'pi pi-fw pi-calculator', to: '/uikit/formlayout/estimaciones' },
                           // { label: 'Button', icon: 'pi pi-fw pi-mobile', to: '/uikit/button', class: 'rotated-icon' },
                           // { label: 'Table', icon: 'pi pi-fw pi-table', to: '/uikit/table' },
                           // { label: 'List', icon: 'pi pi-fw pi-list', to: '/uikit/list' },

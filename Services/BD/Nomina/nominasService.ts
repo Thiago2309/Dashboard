@@ -3,11 +3,19 @@ import { supabase } from '../../superbase.service';
 export interface Nomina {
   id?: number;
   id_operador: number;
+  empleado_nombre: string; // CAMBIAR DE string? a string
   semana: number;
   anio: number;
   fecha_inicio: string;
   fecha_fin: string;
   total_viajes: number;
+  
+  // Campos que estaban faltando en tu interfaz
+  salario_base: number;
+  pago_alcance_meta: number;
+  rebaso: boolean;
+  cantidad_viajes: number;
+  
   pago_bruto: number;
   
   // Descuentos
@@ -35,9 +43,6 @@ export interface Nomina {
   notas?: string;
   created_at?: string;
   updated_at?: string;
-  
-  // Campos relacionales
-  operador_nombre?: string;
 }
 
 export const fetchNominas = async (semana?: number, anio?: number): Promise<Nomina[]> => {

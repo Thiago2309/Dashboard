@@ -11,8 +11,10 @@ import { LayoutContext } from '../../layout/context/layoutcontext';
 import Link from 'next/link';
 import { Demo } from '@/types';
 import { ChartData, ChartOptions } from 'chart.js';
-import Crud from '../(main)/pages/crud/page';
-import CajaChicaCrud from './pages/crud/CajaChicaCrud';
+import { Viaje, fetchViajes } from '../../Services/BD/viajeService';
+import { Gasto, fetchGastos } from '../../Services/BD/gastoService';
+import { CajaChica, fetchCajaChica } from '../../Services/BD/cajaChicaService';
+import { fetchTodosClientesConCuentas } from '../../Services/BD/cuentasPorCobrarService';
 
 const lineData: ChartData = {
     labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
@@ -36,12 +38,86 @@ const lineData: ChartData = {
     ]
 };
 
+// Función para calcular el total de horas de viaje (subtotal)
+const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
+    return viajes.reduce((total, item) => {
+        const horas = item.caphrsviajes || 0;
+        return total + horas;
+    }, 0);
+};
+
+// Función para calcular el total de viajes
+const calcularTotalViajes = (viajes: Viaje[]): number => {
+    return viajes.length;
+};
+
+// Función para calcular el total de gastos
+const calcularTotalGastos = (gastos: Gasto[]): number => {
+    return gastos.reduce((total, item) => {
+        const importe = item.importe || 0;
+        return total + importe;
+    }, 0);
+};
+
+// Función para calcular el saldo total de la empresa
+const calcularSaldoTotal = (cajaChicaList: CajaChica[]): number => {
+    return cajaChicaList.reduce((total, item) => {
+        const ingreso = item.ingreso || 0;
+        const egreso = item.egreso || 0;
+        return total + ingreso - egreso;
+    }, 0);
+};
+
 const Dashboard = () => {
     const [products, setProducts] = useState<Demo.Product[]>([]);
+    const [viajes, setViajes] = useState<Viaje[]>([]);
+    const [gastos, setGastos] = useState<Gasto[]>([]);
+    const [cajaChica, setCajaChica] = useState<CajaChica[]>([]);
+    const [totalPorCobrar, setTotalPorCobrar] = useState<number>(0);
+    const [loading, setLoading] = useState(true);
     const menu1 = useRef<Menu>(null);
     const menu2 = useRef<Menu>(null);
     const [lineOptions, setLineOptions] = useState<ChartOptions>({});
     const { layoutConfig } = useContext(LayoutContext);
+
+    // Cargar todos los datos para el dashboard
+    useEffect(() => {
+        loadDashboardData();
+    }, []);
+
+    const loadDashboardData = async () => {
+        try {
+            setLoading(true);
+            const [viajesData, gastosData, cajaChicaData, cuentasData] = await Promise.all([
+                fetchViajes(),
+                fetchGastos(),
+                fetchCajaChica(),
+                loadCuentasPorCobrar()
+            ]);
+            
+            setViajes(viajesData);
+            setGastos(gastosData);
+            setCajaChica(cajaChicaData);
+        } catch (error) {
+            console.error('Error loading dashboard data:', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    // Función para cargar cuentas por cobrar
+    const loadCuentasPorCobrar = async () => {
+        try {
+            const data = await fetchTodosClientesConCuentas();
+            const total = data.reduce((sum: number, c: any) => sum + (c.total_adeudado || 0), 0);
+            setTotalPorCobrar(Math.max(0, total));
+            return data;
+        } catch (error) {
+            console.error('Error loading cuentas por cobrar:', error);
+            setTotalPorCobrar(0);
+            return [];
+        }
+    };
 
     const applyLightTheme = () => {
         const lineOptions: ChartOptions = {
@@ -71,7 +147,6 @@ const Dashboard = () => {
                 }
             }
         };
-
         setLineOptions(lineOptions);
     };
 
@@ -103,7 +178,6 @@ const Dashboard = () => {
                 }
             }
         };
-
         setLineOptions(lineOptions);
     };
 
@@ -119,59 +193,152 @@ const Dashboard = () => {
         }
     }, [layoutConfig.colorScheme]);
 
-    const formatCurrency = (value: number) => {
-        return value?.toLocaleString('en-US', {
-            style: 'currency',
-            currency: 'USD'
-        });
-    };
-
     return (
         <div className="grid">
-            <div className="col-12 lg:col-6 xl:col-3">
-                <div className="card mb-0">
-                    <div className="flex justify-content-between mb-3">
-                        <div>
-                            <span className="block text-500 font-medium mb-3">Total de Ganancias Netas</span>
-                            <div className="text-900 font-medium text-xl">152</div>
-                        </div>
-                        <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-dollar text-black-500 text-xl" />
-                        </div>
-                    </div>
-                    <span className="text-green-500 font-medium">24 new </span>
-                    <span className="text-500">since last visit</span>
+            {/* El resto de tu contenido existente del dashboard */}
+            <div className="col-12">
+                <div className="card">
+                    <h5>Resumen General</h5>
+                    <p>Dashboard principal con métricas clave del sistema.</p>
                 </div>
             </div>
+            
+            {/* Card 1: Sub Total - Gestión de Notas de Viajes */}
             <div className="col-12 lg:col-6 xl:col-3">
-                <div className="card mb-0">
-                    <div className="flex justify-content-between mb-3">
-                        <div>
-                            <span className="block text-500 font-medium mb-3">Customers</span>
-                            <div className="text-900 font-medium text-xl">28441</div>
+                <Link href="/uikit/formlayout?module=Viajes" className="no-underline">
+                    <div className="card mb-0 cursor-pointer hover:shadow-2 transition-all transition-duration-300">
+                        <div className="flex justify-content-between mb-3">
+                            <div>
+                                <span className="block text-500 font-medium mb-3">Sub Total - Sin IVA</span>
+                                <div className="text-900 font-medium text-xl">
+                                    {loading ? (
+                                        <i className="pi pi-spinner pi-spin"></i>
+                                    ) : (
+                                        `$ ${calcularTotalHorasViajes(viajes).toLocaleString('en-US', { 
+                                            minimumFractionDigits: 2, 
+                                            maximumFractionDigits: 2 
+                                        })}`
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex align-items-center justify-content-center bg-green-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                                <i className="pi pi-clock text-black-500 text-xl" />
+                            </div>
                         </div>
-                        <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-inbox text-cyan-500 text-xl" />
-                        </div>
+                        <span className="text-500 text-blue-500">Click para ver detalles</span>
                     </div>
-                    <span className="text-green-500 font-medium">520 </span>
-                    <span className="text-500">newly registered</span>
-                </div>
+                </Link>
             </div>
+
+            {/* Card 2: Total de Viajes */}
             <div className="col-12 lg:col-6 xl:col-3">
-                <div className="card mb-0">
-                    <div className="flex justify-content-between mb-3">
-                        <div>
-                            <span className="block text-500 font-medium mb-3">Comments</span>
-                            <div className="text-900 font-medium text-xl">152 Unread</div>
+                <Link href="/uikit/formlayout?module=Viajes" className="no-underline">
+                    <div className="card mb-0 cursor-pointer hover:shadow-2 transition-all transition-duration-300">
+                        <div className="flex justify-content-between mb-3">
+                            <div>
+                                <span className="block text-500 font-medium mb-3">Total de Viajes</span>
+                                <div className="text-900 font-medium text-xl">
+                                    {loading ? (
+                                        <i className="pi pi-spinner pi-spin"></i>
+                                    ) : (
+                                        calcularTotalViajes(viajes).toLocaleString()
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex align-items-center justify-content-center bg-cyan-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                                <i className="pi pi-car text-cyan-500 text-xl" />
+                            </div>
                         </div>
-                        <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
-                            <i className="pi pi-comment text-purple-500 text-xl" />
-                        </div>
+                        <span className="text-500 text-blue-500">Click para ver detalles</span>
                     </div>
-                    <span className="text-green-500 font-medium">85 </span>
-                    <span className="text-500">responded</span>
-                </div>
+                </Link>
+            </div>
+
+            {/* Card 3: Total de Gastos */}
+            <div className="col-12 lg:col-6 xl:col-3">
+                <Link href="/uikit/formlayout?module=Gastos" className="no-underline">
+                    <div className="card mb-0 cursor-pointer hover:shadow-2 transition-all transition-duration-300">
+                        <div className="flex justify-content-between mb-3">
+                            <div>
+                                <span className="block text-500 font-medium mb-3">Total de Gastos</span>
+                                <div className="text-900 font-medium text-xl">
+                                    {loading ? (
+                                        <i className="pi pi-spinner pi-spin"></i>
+                                    ) : (
+                                        `$ ${calcularTotalGastos(gastos).toLocaleString('en-US', { 
+                                            minimumFractionDigits: 2, 
+                                            maximumFractionDigits: 2 
+                                        })}`
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex align-items-center justify-content-center bg-purple-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                                <i className="pi pi-money-bill text-purple-500 text-xl" />
+                            </div>
+                        </div>
+                        <span className="text-500 text-blue-500">Click para ver detalles</span>
+                    </div>
+                </Link>
+            </div>
+
+            {/* Card 4: Resumen general del dinero de la empresa */}
+            <div className="col-12 lg:col-6 xl:col-3">
+                <Link href="/uikit/formlayout?module=Caja Negra" className="no-underline">
+                    <div className="card mb-0 cursor-pointer hover:shadow-2 transition-all transition-duration-300">
+                        <div className="flex justify-content-between mb-3">
+                            <div>
+                                <span className="block text-500 font-medium mb-3">Saldo Empresa</span>
+                                <div 
+                                    className="text-900 font-medium text-xl"
+                                    style={{ color: calcularSaldoTotal(cajaChica) >= 0 ? 'green' : 'red' }}
+                                >
+                                    {loading ? (
+                                        <i className="pi pi-spinner pi-spin"></i>
+                                    ) : (
+                                        `$ ${calcularSaldoTotal(cajaChica).toLocaleString('en-US', { 
+                                            minimumFractionDigits: 2, 
+                                            maximumFractionDigits: 2 
+                                        })}`
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex align-items-center justify-content-center bg-orange-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                                <i className="pi pi-building text-orange-500 text-xl" />
+                            </div>
+                        </div>
+                        <span className="text-500 text-blue-500">Click para ver detalles</span>
+                    </div>
+                </Link>
+            </div>
+
+            {/* Card 5: Cuentas por Cobrar - Clickable */}
+            <div className="col-12 lg:col-6 xl:col-3">
+                <Link href="/uikit/input" className="no-underline">
+                    <div className="card mb-0 cursor-pointer hover:shadow-2 transition-all transition-duration-300">
+                        <div className="flex justify-content-between mb-3">
+                            <div>
+                                <span className="block text-500 font-medium mb-3">Cuentas por Cobrar</span>
+                                <div 
+                                    className="text-900 font-medium text-xl"
+                                    style={{ color: totalPorCobrar > 0 ? 'var(--green-500)' : 'var(--orange-500)' }}
+                                >
+                                    {loading ? (
+                                        <i className="pi pi-spinner pi-spin"></i>
+                                    ) : (
+                                        `$ ${totalPorCobrar.toLocaleString('en-US', { 
+                                            minimumFractionDigits: 2, 
+                                            maximumFractionDigits: 2 
+                                        })}`
+                                    )}
+                                </div>
+                            </div>
+                            <div className="flex align-items-center justify-content-center bg-red-100 border-round" style={{ width: '2.5rem', height: '2.5rem' }}>
+                                <i className="pi pi-credit-card text-red-500 text-xl" />
+                            </div>
+                        </div>
+                        <span className="text-500 text-blue-500">Click para ver detalles</span>
+                    </div>
+                </Link>
             </div>
         </div>
     );

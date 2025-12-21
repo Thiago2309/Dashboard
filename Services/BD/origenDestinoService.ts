@@ -5,6 +5,7 @@ export interface OrigenDestino {
     nombreorigen: string;
     nombredestino: string;
     precio_unidad: number;
+    status?: boolean;
 }
 
 // Helper function to transform Supabase response to OrigenDestino interface
@@ -13,13 +14,16 @@ const transformOrigenDestinoData = (data: any): OrigenDestino => ({
     nombreorigen: data.nombreorigen,
     nombredestino: data.nombredestino,
     precio_unidad: data.precio_unidad,
+    status: data.status ?? true,
 });
 
 // Obtener todos los registros de Origen Destino
 export const fetchOrigenDestino = async (): Promise<OrigenDestino[]> => {
     const { data, error } = await supabase
         .from('fetch_origen_destino') // Nombre de la tabla
-        .select('*');
+        .select('*')
+        .order('status', { ascending: false })  // Mostrar activos primero
+        .order('nombreorigen');
 
     if (error) {
         console.error('Error fetching Origen Destino:', error);
@@ -29,11 +33,32 @@ export const fetchOrigenDestino = async (): Promise<OrigenDestino[]> => {
     return data || [];
 };
 
+// Obtener solo los registros activos (status = true)
+export const fetchOrigenDestinoActivos = async (): Promise<OrigenDestino[]> => {
+    const { data, error } = await supabase
+        .from('fetch_origen_destino')  // Usa la vista
+        .select('*')
+        .eq('status', true)  // Solo activos
+        .order('nombreorigen');
+
+    if (error) {
+        console.error('Error fetching Origen Destino activos:', error);
+        throw error;
+    }
+
+    return data?.map(transformOrigenDestinoData) || [];
+};
+
 // Crear un nuevo registro de Origen Destino
 export const createOrigenDestino = async (origenDestino: Omit<OrigenDestino, 'id'>): Promise<OrigenDestino> => {
     const { data, error } = await supabase
-        .from('fetch_origen_destino')
-        .insert([origenDestino])
+        .from('fetch_origen_destino')  // Tabla base para INSERT
+        .insert([{
+            nombreorigen: origenDestino.nombreorigen,
+            nombredestino: origenDestino.nombredestino,
+            precio_unidad: origenDestino.precio_unidad,
+            status: origenDestino.status ?? true  // Nuevo campo
+        }])
         .select('*')
         .single();
 
@@ -53,6 +78,7 @@ export const updateOrigenDestino = async (origenDestino: OrigenDestino): Promise
             nombreorigen: origenDestino.nombreorigen,
             nombredestino: origenDestino.nombredestino,
             precio_unidad: origenDestino.precio_unidad,
+            status: origenDestino.status ?? true 
         })
         .eq('id', origenDestino.id)
         .select('*')
@@ -60,6 +86,23 @@ export const updateOrigenDestino = async (origenDestino: OrigenDestino): Promise
 
     if (error) {
         console.error('Error updating Origen Destino:', error);
+        throw error;
+    }
+
+    return transformOrigenDestinoData(data);
+};
+
+// Alternar estado (status)
+export const toggleStatusOrigenDestino = async (id: number, status: boolean): Promise<OrigenDestino> => {
+    const { data, error } = await supabase
+        .from('fetch_origen_destino')
+        .update({ status })
+        .eq('id', id)
+        .select('*')
+        .single();
+
+    if (error) {
+        console.error('Error toggling status:', error);
         throw error;
     }
 

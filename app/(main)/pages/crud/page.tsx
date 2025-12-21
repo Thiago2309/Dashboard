@@ -9,7 +9,7 @@ import { Toolbar } from 'primereact/toolbar';
 import { Dropdown } from 'primereact/dropdown'; // Import Dropdown
 import { Calendar } from 'primereact/calendar';
 import React, { useEffect, useRef, useState } from 'react';
-import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores } from '../../../../Services/BD/viajeService';
+import { fetchViajes, createViaje, updateViaje, deleteViaje, Viaje, fetchClientes, fetchPreciosOrigenDestino, fetchMateriales, fetchM3, fetchOperadores, checkFolioExists } from '../../../../Services/BD/viajeService';
 import { DataTableFilterMeta } from 'primereact/datatable';
 import { InputNumber } from 'primereact/inputnumber';
 import { Checkbox } from 'primereact/checkbox';
@@ -49,6 +49,7 @@ const Crud = () => {
     const [m3Options, setM3Options] = useState<{ id: number; nombre: string; metros_cubicos: number }[]>([]);
     const [materiales, setMateriales] = useState<{ id: number; nombre: string }[]>([]);
     const [operadores, setOperadores] = useState<{id: number; nombre: string}[]>([]);
+    const [folioError, setFolioError] = useState(false);
 
     // Función para calcular el total de horas de viaje
     const calcularTotalHorasViajes = (viajes: Viaje[]): number => {
@@ -530,12 +531,34 @@ const Crud = () => {
                         </div>
                         <div className="field">
                             <label htmlFor="folio">Folio</label>
-                            <InputText
+                           <InputText
                                 id="folio"
                                 value={viaje.folio}
-                                onChange={(e) => setViaje({ ...viaje, folio: e.target.value })}
+                                onChange={(e) => {
+                                    setViaje({ ...viaje, folio: e.target.value });
+                                    // Limpiar el estado de error si el usuario modifica el folio
+                                    if (folioError) {
+                                    setFolioError(false);
+                                    }
+                                }}
+                                onBlur={async () => {
+                                    if (viaje.folio && !viaje.id) { // Solo validar si hay folio
+                                    const folioExists = await checkFolioExists(viaje.folio);
+                                    if (folioExists) {
+                                        setFolioError(true); // Activar estado de error
+                                        toast.current?.show({ 
+                                        severity: 'error', // Cambiado a 'error' en lugar de 'warn'
+                                        summary: 'Error: Folio duplicado', 
+                                        detail: `El folio "${viaje.folio}" ya existe. Por favor ingresa un folio diferente.`, 
+                                        life: 5000 
+                                        });
+                                    } else {
+                                        setFolioError(false); // Limpiar error si el folio es válido
+                                    }
+                                    }
+                                }}
                                 required
-                                className={submitted && !viaje.folio ? 'p-invalid' : ''}
+                                className={submitted && !viaje.folio ? 'p-invalid' : (folioError ? 'p-invalid' : '')}
                             />
                             {submitted && !viaje.folio && <small className="p-invalid">Folio es requerido.</small>}
                         </div>

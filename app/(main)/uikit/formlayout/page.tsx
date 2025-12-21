@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from 'primereact/button';
 import ViajesModule from './viajes';
 import GastosModule from './gastos';
@@ -13,8 +13,19 @@ import InvitadosCrud from './invitados';
 import ProvedoresCrud from './provedores';
 import MaterialCrud from './material';
 
+import { useSearchParams } from 'next/navigation';
+
 const TableModule = () => {
     const [activeModule, setActiveModule] = useState('Viajes');
+    const searchParams = useSearchParams();
+
+    useEffect(() => {
+        // Leer el parámetro 'module' de la URL
+        const moduleParam = searchParams.get('module');
+        if (moduleParam) {
+            setActiveModule(moduleParam);
+        }
+    }, [searchParams]);
 
     const renderModule = () => {
         switch (activeModule) {

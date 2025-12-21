@@ -11,7 +11,7 @@ import { Column } from 'primereact/column';
 import { Dialog } from 'primereact/dialog';
 import { Dropdown } from 'primereact/dropdown';
 import { fetchOperadores, Operador as Empleado } from '../../../../../Services/BD/operadoresService';
-import { fetchPrestamosActivos, Prestamo } from '../../../../../Services/BD/Nomina/prestamosService';
+import { fetchPrestamosActivos, Prestamo, aplicarPagoPrestamo } from '../../../../../Services/BD/Nomina/prestamosService';
 import { fetchViajes, Viaje } from '../../../../../Services/BD/viajeService';
 import { createNomina, Nomina, updateNomina, fetchNominasPorSemana } from '../../../../../Services/BD/Nomina/nominasService';
 import { fetchBonosActivos } from '../../../../../Services/BD/Nomina/bonosService';
@@ -19,6 +19,9 @@ import * as XLSX from 'xlsx';
 import { useCallback } from 'react';
 import { ReciboNominaPrint } from './recibo/ReciboNominaPrint';
 import { ModalVistaPrevia } from './recibo/ModalVistaPrevia';
+import { Checkbox } from 'primereact/checkbox';
+import { InputNumber } from 'primereact/inputnumber';
+import { fetchClientes } from '../../../../../Services/BD/clientesService';
 
 const NominaModule = () => {
     const [empleados, setEmpleados] = useState<Empleado[]>([]);
@@ -41,6 +44,13 @@ const NominaModule = () => {
     const dt = useRef<DataTable<any>>(null);
     const [showVistaPrevia, setShowVistaPrevia] = useState(false);
     const [nominaParaVistaPrevia, setNominaParaVistaPrevia] = useState<any>(null);
+    const [clientes, setClientes] = useState<any[]>([]);
+
+    // Prestamo
+    const [showPrestamoDialog, setShowPrestamoDialog] = useState(false);
+    const [prestamoSeleccionado, setPrestamoSeleccionado] = useState<any>(null);
+    const [montoDescuento, setMontoDescuento] = useState(0);
+    const [aplicarDescuento, setAplicarDescuento] = useState(false);
 
     const metodosPago = [
         { label: 'Efectivo', value: 'efectivo' },
@@ -63,42 +73,48 @@ const NominaModule = () => {
     }, [fechaSeleccionada]);
 
     // ************************************** FUNCIONES PARA CAMBIAR LA FECHA DE RANGO DE NOMINA *************************************
-    const getStartOfWeek = (date: Date) => {
-        const day = date.getDay(); // 0 = Domingo, 1 = Lunes, ..., 6 = Sábado
-        // Si es sábado (6), no hacemos ajuste, si no retrocedemos al sábado anterior
-        const diff = date.getDate() - day - (day === 7 ? 0 : 1);
-        const newDate = new Date(date);
-        newDate.setDate(diff);
-        return newDate;
+    // Sistema de semanas fijas (siempre 7 días)
+    const getStartOfFixedWeek = (date: Date, startDay: number = 6) => { // 6 = Sábado
+        const d = new Date(date);
+        const day = d.getDay();
+        
+        // Calcular diferencia al día de inicio deseado (ej: sábado)
+        const diff = day >= startDay ? 
+            startDay - day : 
+            startDay - day - 7;
+        
+        d.setDate(d.getDate() + diff);
+        d.setHours(0, 0, 0, 0);
+        return d;
     };
 
-    const getEndOfWeek = (date: Date) => {
-        const start = getStartOfWeek(new Date(date));
+    const getEndOfFixedWeek = (date: Date, startDay: number = 6) => {
+        const start = getStartOfFixedWeek(date, startDay);
         const end = new Date(start);
-        end.setDate(start.getDate() + 6); // 6 días después del sábado = viernes
+        end.setDate(start.getDate() + 6); // Semana de 7 días
+        end.setHours(23, 59, 59, 999);
         return end;
     };
     // ******************************************************************************************************************************
 
     const getWeekNumber = (date: Date) => {
-        const tempDate = new Date(date.valueOf());
-        
-        // Encontrar el sábado de esta semana
-        const day = tempDate.getDay();
-        const diff = tempDate.getDate() - day + (day === 6 ? 0 : -1);
-        tempDate.setDate(diff);
-        
+        const startOfWeek = getStartOfFixedWeek(date);
+
         // Primer sábado del año
-        const firstSaturday = new Date(tempDate.getFullYear(), 0, 1);
-        const firstDay = firstSaturday.getDay();
-        const firstDiff = firstSaturday.getDate() - firstDay + (firstDay === 6 ? 0 : -1);
-        firstSaturday.setDate(firstDiff);
-        
-        const diffTime = Math.abs(tempDate.getTime() - firstSaturday.getTime());
-        const diffWeeks = Math.ceil(diffTime / (1000 * 60 * 60 * 24 * 7));
-        
-        return diffWeeks + 1;
+        const year = startOfWeek.getFullYear();
+        const firstDay = new Date(year, 0, 1);
+        const firstDayWeekday = firstDay.getDay(); // 0–6
+
+        // Ajustar al primer sábado del año
+        const diffToFirstSaturday = (6 - firstDayWeekday + 7) % 7;
+        const firstSaturday = new Date(firstDay);
+        firstSaturday.setDate(firstSaturday.getDate() + diffToFirstSaturday);
+
+        // Calcular semana
+        const diffMs = startOfWeek.getTime() - firstSaturday.getTime();
+        return Math.floor(diffMs / (7 * 24 * 60 * 60 * 1000)) + 1;
     };
+
 
     const formatDate = (date: Date) => {
         return date.toISOString().split('T')[0];
@@ -143,15 +159,17 @@ const NominaModule = () => {
 
     const cargarDatos = async () => {
         try {
-            const [empleadosData, prestamosData, viajesData] = await Promise.all([
+            const [empleadosData, prestamosData, viajesData, clientesData] = await Promise.all([
                 fetchOperadores(),
                 fetchPrestamosActivos(),
-                fetchViajes()
+                fetchViajes(),
+                fetchClientes()
             ]);
             
             setEmpleados(empleadosData);
             setPrestamos(prestamosData);
             setViajes(viajesData);
+            setClientes(clientesData);
             
         } catch (error) {
             toast.current?.show({
@@ -297,15 +315,47 @@ const NominaModule = () => {
         setCargando(true);
         try {
             const semana = getWeekNumber(fechaSeleccionada);
+            console.log('Semana calculada:', semana);
             const anio = fechaSeleccionada.getFullYear();
-            const fechaInicio = getStartOfWeek(new Date(fechaSeleccionada));
-            const fechaFin = getEndOfWeek(new Date(fechaSeleccionada));
+            const fechaInicio = getStartOfFixedWeek(new Date(fechaSeleccionada), 6); // Sábado
+            console.log('Fecha Inicio sin ajustar:', formatDate(fechaInicio));
 
             // Ajustar para que la fecha de fin sea el mismo día de la semana que inicio + 6 días (semana completa)
             const fechaInicioStr = formatDate(fechaInicio);
             const fechaFinAjustada = new Date(fechaInicio);
-            fechaFinAjustada.setDate(fechaInicio.getDate() + 6); // 6 días después del inicio
+            fechaFinAjustada.setDate(fechaInicio.getDate() + 6); // 6 días después del inicio (sábado + 6 = viernes)
+            console.log('Fecha Inicio que filtra:', fechaInicioStr);
             const fechaFinStr = formatDate(fechaFinAjustada);
+            console.log('Fecha fin que filtra:', fechaFinStr);
+
+            // Función para calcular monto con descuento administrativo
+            const calcularMontoConDescuento = (viaje: any) => {
+                const montoOriginal = viaje.caphrsviajes || 0;
+                
+                // Buscar el cliente en el array de clientes
+                const cliente = clientes.find(c => {
+                    // Primero por nombre/empresa (case insensitive)
+                    const nombreCliente = c.empresa || c.nombre || '';
+                    const nombreViaje = viaje.cliente_nombre || '';
+                    
+                    const coincidePorNombre = nombreCliente.toUpperCase() === nombreViaje.toUpperCase();
+                    
+                    // También por ID si existe
+                    const coincidePorId = c.id === viaje.id_cliente;
+                    
+                    return coincidePorNombre || coincidePorId;
+                });
+                
+                // Si el cliente tiene porcentaje administrativo, aplicar descuento
+                if (cliente && cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+                    const porcentaje = cliente.porcentaje_administrativo / 100;
+                    const descuento = montoOriginal * porcentaje;
+                    return montoOriginal - descuento;
+                }
+                
+                // Si no tiene porcentaje, retornar monto original
+                return montoOriginal;
+            };
 
             const todosViajesSemana = viajes.filter(viaje => {
                 return viaje.fecha >= fechaInicioStr && viaje.fecha <= fechaFinStr;
@@ -326,9 +376,18 @@ const NominaModule = () => {
                         return perteneceAlOperador && estaEnRango;
                     });
 
+                    // Calcular total usando monto con descuento administrativo
                     const totalViajes = viajesEmpleado.reduce((sum, viaje) => {
+                        return sum + calcularMontoConDescuento(viaje);
+                    }, 0);
+
+                    // Calcular monto total sin descuento (para referencia)
+                    const totalViajesSinDescuento = viajesEmpleado.reduce((sum, viaje) => {
                         return sum + (viaje.caphrsviajes || 0);
                     }, 0);
+
+                    // Calcular descuento total aplicado
+                    const descuentoTotal = totalViajesSinDescuento - totalViajes;
 
                     const salarioBase = empleado.salario_base || 0;
                     
@@ -359,7 +418,11 @@ const NominaModule = () => {
                     const prestamosEmpleado = prestamosActivos.filter(p => p.id_operador === empleado.id);
                     const totalPrestamos = prestamosEmpleado.reduce((sum, p) => sum + p.saldo_pendiente, 0);
                     
-                    const pagoNeto = pagoBruto - totalPrestamos;
+                    // En lugar de calcular automáticamente, inicializar en 0
+                    const descuentoPrestamoManual = 0; // Inicialmente 0
+                    const aplicarDescuentoPrestamo = false; // Checkbox para aplicar
+
+                    const pagoNeto = pagoBruto - descuentoPrestamoManual;
 
                     return {
                         id_operador: empleado.id,
@@ -369,16 +432,25 @@ const NominaModule = () => {
                         fecha_inicio: fechaInicioStr,
                         fecha_fin: fechaFinStr,
                         total_viajes: totalViajes,
+                        total_viajes_sin_descuento: totalViajesSinDescuento, // Nuevo campo
+                        descuento_administrativo: descuentoTotal, // Nuevo campo
                         cantidad_viajes: viajesEmpleado.length,
                         salario_base: salarioBase,
-                        pago_alcance_meta: pagoAlcanceMeta, // Pago por alcanzar la meta
-                        bono: totalBonos, // Bonos activos del empleado
+                        pago_alcance_meta: pagoAlcanceMeta,
+                        bono: totalBonos,
                         pago_bruto: pagoBruto,
                         rebaso: rebaso,
-                        prestamos: totalPrestamos,
+                        
+                        // PRÉSTAMOS - AGREGAR CAMPOS MANUALES
+                        prestamos_disponibles: totalPrestamos, // Total disponible para descontar
+                        aplicar_descuento_prestamo: aplicarDescuentoPrestamo, // Checkbox
+                        descuento_prestamo: descuentoPrestamoManual, // Monto manual a descontar
+                        prestamos: 0, // Inicialmente 0 (no se descuenta)
+                        
                         pago_neto: pagoNeto > 0 ? pagoNeto : 0,
                         estatus: 'Pendiente',
                         viajes: viajesEmpleado,
+                        prestamos_detalle: prestamosEmpleado // Guardar detalles para mostrar
                     };
                 });
 
@@ -389,7 +461,7 @@ const NominaModule = () => {
             toast.current?.show({
                 severity: 'success',
                 summary: 'Éxito',
-                detail: 'Nómina calculada correctamente',
+                detail: 'Nómina calculada correctamente con descuentos administrativos',
                 life: 3000
             });
         } catch (error) {
@@ -407,7 +479,51 @@ const NominaModule = () => {
 
     const guardarNominas = async () => {
         try {
-            await Promise.all(nominasCalculadas.map(nomina => createNomina(nomina)));
+            // Preparar datos para guardar - incluir TODOS los campos
+            const nominasParaGuardar = nominasCalculadas.map(nomina => ({
+                // Campos básicos
+                id_operador: nomina.id_operador,
+                empleado_nombre: nomina.empleado_nombre, // Asegúrate de incluir esto
+                semana: nomina.semana,
+                anio: nomina.anio,
+                fecha_inicio: nomina.fecha_inicio,
+                fecha_fin: nomina.fecha_fin,
+                total_viajes: nomina.total_viajes,
+                
+                // Campos que estaban faltando
+                salario_base: nomina.salario_base || 0,
+                pago_alcance_meta: nomina.pago_alcance_meta || 0,
+                rebaso: nomina.rebaso || false,
+                cantidad_viajes: nomina.cantidad_viajes || 0,
+                
+                pago_bruto: nomina.pago_bruto,
+                
+                // Descuentos
+                descuento_imss: 0,
+                descuento_isr: 0,
+                descuento_infonavit: 0,
+                descuento_fonacot: 0,
+                otros_descuentos: 0,
+                
+                // Préstamos y deducciones
+                prestamos: nomina.prestamos || 0,
+                pago_neto: nomina.pago_neto,
+                
+                // Bonos
+                bono: nomina.bono || 0,
+                horas_extra: 0,
+                otros_bonos: 0,
+                
+                // Información de pago
+                metodo_pago: undefined,
+                referencia_pago: undefined,
+                fecha_pago: undefined,
+                
+                estatus: 'Pendiente',
+                notas: ''
+            }));
+
+            await Promise.all(nominasParaGuardar.map(nomina => createNomina(nomina)));
             
             toast.current?.show({
                 severity: 'success',
@@ -420,6 +536,7 @@ const NominaModule = () => {
             setShowResults(false);
             setViajesSemana([]);
         } catch (error) {
+            console.error('Error al guardar nóminas:', error);
             toast.current?.show({
                 severity: 'error',
                 summary: 'Error',
@@ -429,10 +546,62 @@ const NominaModule = () => {
         }
     };
 
-    const abrirDialogoPago = (nomina: any) => {
+    const abrirDialogoPrestamo = (nomina: any) => {
+        setPrestamoSeleccionado(nomina);
+        setMontoDescuento(nomina.descuento_prestamo || 0);
+        setAplicarDescuento(nomina.aplicar_descuento_prestamo || false);
+        setShowPrestamoDialog(true);
+    };
+
+    const guardarDescuentoPrestamo = () => {
+        if (!prestamoSeleccionado) return;
+
+        const nominasActualizadas = nominasCalculadas.map(n => {
+            if (n.id_operador === prestamoSeleccionado.id_operador) {
+                const descuentoFinal = aplicarDescuento ? Math.min(montoDescuento, n.prestamos_disponibles) : 0;
+                const nuevoPagoNeto = n.pago_bruto - descuentoFinal;
+                
+                return {
+                    ...n,
+                    aplicar_descuento_prestamo: aplicarDescuento,
+                    descuento_prestamo: descuentoFinal,
+                    prestamos: descuentoFinal,
+                    pago_neto: nuevoPagoNeto > 0 ? nuevoPagoNeto : 0
+                };
+            }
+            return n;
+        });
+
+        setNominasCalculadas(nominasActualizadas);
+        setShowPrestamoDialog(false);
+        
+        toast.current?.show({
+            severity: 'success',
+            summary: 'Éxito',
+            detail: 'Descuento de préstamo actualizado',
+            life: 3000
+        });
+    };
+
+    const abrirDialogoPago = async (nomina: any) => {
         setNominaSeleccionada(nomina);
         setMetodoPago(nomina.metodo_pago || '');
         setReferenciaPago(nomina.referencia_pago || '');
+        
+        // Obtener préstamos actualizados del empleado
+        try {
+            const prestamosEmpleado = await fetchPrestamosActivos();
+            const prestamosFiltrados = prestamosEmpleado.filter(p => p.id_operador === nomina.id_operador);
+            
+            // Actualizar la nómina con los préstamos actualizados
+            setNominaSeleccionada({
+                ...nomina,
+                prestamos_detalle: prestamosFiltrados
+            });
+        } catch (error) {
+            console.error('Error al obtener préstamos:', error);
+        }
+        
         setShowPagoDialog(true);
     };
 
@@ -446,6 +615,18 @@ const NominaModule = () => {
                     life: 3000
                 });
                 return;
+            }
+
+            // Obtener préstamos activos del empleado
+            const prestamosEmpleado = await fetchPrestamosActivos();
+            const prestamosFiltrados = prestamosEmpleado.filter(p => p.id_operador === nominaSeleccionada.id_operador);
+            
+            // Usar el campo 'prestamos' que contiene el monto a descontar
+            let montoPrestamoAplicado = nominaSeleccionada.prestamos || 0;
+            
+            // Aplicar pagos a los préstamos si hay descuento configurado
+            if (montoPrestamoAplicado > 0 && prestamosFiltrados.length > 0) {
+                await aplicarPagoAPrestamos(prestamosFiltrados, montoPrestamoAplicado, nominaSeleccionada.id);
             }
 
             const nominasActualizadas = nominasCalculadas.map(n => 
@@ -462,14 +643,45 @@ const NominaModule = () => {
             setNominasCalculadas(nominasActualizadas);
 
             if (nominaSeleccionada.id) {
-                const nominaActualizada = {
-                    ...nominaSeleccionada,
+                // Crear objeto SOLO con los campos que existen en la tabla
+                const camposParaActualizar = {
+                    id: nominaSeleccionada.id,
                     estatus: 'Pagado',
                     metodo_pago: metodoPago,
                     referencia_pago: referenciaPago,
-                    fecha_pago: new Date().toISOString().split('T')[0]
+                    fecha_pago: new Date().toISOString().split('T')[0],
+                    updated_at: new Date().toISOString(),
+                    
+                    // Campos requeridos por la interfaz Nomina
+                    descuento_imss: nominaSeleccionada.descuento_imss || 0,
+                    descuento_isr: nominaSeleccionada.descuento_isr || 0,
+                    descuento_infonavit: nominaSeleccionada.descuento_infonavit || 0,
+                    descuento_fonacot: nominaSeleccionada.descuento_fonacot || 0,
+                    otros_descuentos: nominaSeleccionada.otros_descuentos || 0,
+                    horas_extra: nominaSeleccionada.horas_extra || 0,
+                    otros_bonos: nominaSeleccionada.otros_bonos || 0,
+                    notas: nominaSeleccionada.notas || '',
+                    prestamos: montoPrestamoAplicado,
+                    pago_bruto: nominaSeleccionada.pago_bruto,
+                    pago_neto: nominaSeleccionada.pago_neto,
+                    bono: nominaSeleccionada.bono || 0,
+                    
+                    // Campos básicos que deben mantenerse
+                    id_operador: nominaSeleccionada.id_operador,
+                    empleado_nombre: nominaSeleccionada.empleado_nombre, 
+                    semana: nominaSeleccionada.semana,
+                    anio: nominaSeleccionada.anio,
+                    fecha_inicio: nominaSeleccionada.fecha_inicio,
+                    fecha_fin: nominaSeleccionada.fecha_fin,
+                    total_viajes: nominaSeleccionada.total_viajes,
+                    salario_base: nominaSeleccionada.salario_base || 0,
+                    pago_alcance_meta: nominaSeleccionada.pago_alcance_meta || 0,
+                    rebaso: nominaSeleccionada.rebaso || false,
+                    cantidad_viajes: nominaSeleccionada.cantidad_viajes || 0
                 };
-                await updateNomina(nominaActualizada);
+                
+                // NO incluir campos que no están en la tabla como prestamos_detalle
+                await updateNomina(camposParaActualizar);
             }
 
             toast.current?.show({
@@ -491,6 +703,64 @@ const NominaModule = () => {
                 life: 3000
             });
         }
+    };
+
+    // Cuando se aplica un pago a préstamos, distribuir el monto entre los préstamos pendientes cuando se guarda la nómina
+    const aplicarPagoAPrestamos = async (prestamos: any[], montoTotal: number, idNomina?: number) => {
+        let montoRestante = montoTotal;
+        
+        // Ordenar préstamos por fecha más antigua primero (FIFO)
+        const prestamosOrdenados = [...prestamos].sort((a, b) => 
+            new Date(a.fecha_prestamo).getTime() - new Date(b.fecha_prestamo).getTime()
+        );
+        
+        // Crear historial de pagos
+        const historialPagos = [];
+        
+        for (const prestamo of prestamosOrdenados) {
+            if (montoRestante <= 0) break;
+            
+            if (prestamo.estatus === 'Pendiente') {
+                const saldoPendiente = prestamo.saldo_pendiente;
+                const montoAplicar = Math.min(saldoPendiente, montoRestante);
+                
+                if (montoAplicar > 0) {
+                    try {
+                        // Usar la función existente para aplicar pago
+                        await aplicarPagoPrestamo(prestamo.id, montoAplicar, idNomina);   
+                        
+                        // Registrar en historial
+                        historialPagos.push({
+                            id_prestamo: prestamo.id,
+                            monto_aplicado: montoAplicar,
+                            saldo_anterior: saldoPendiente,
+                            saldo_nuevo: saldoPendiente - montoAplicar,
+                            fecha: new Date().toISOString()
+                        });
+                        
+                        montoRestante -= montoAplicar;
+                        
+                        toast.current?.show({
+                            severity: 'info',
+                            summary: 'Aplicando pago a préstamo',
+                            detail: `Aplicado $${montoAplicar} al préstamo #${prestamo.id}`,
+                            life: 2000
+                        });
+                        
+                    } catch (error) {
+                        console.error(`Error al aplicar pago al préstamo ${prestamo.id}:`, error);
+                        throw error;
+                    }
+                }
+            }
+        }
+        
+        // Si queda monto restante (no debería pasar, pero por si acaso)
+        if (montoRestante > 0) {
+            console.warn(`Quedó monto restante sin aplicar: $${montoRestante}`);
+        }
+        
+        return historialPagos;
     };
 
     const leftToolbarTemplate = () => (
@@ -681,10 +951,18 @@ const NominaModule = () => {
     };
 
     const estadoBodyTemplate = (rowData: any) => {
+        const isPagado = rowData.estatus === 'Pagado';
         return (
-            <span className={`p-tag ${rowData.estatus === 'Pagado' ? 'p-tag-success' : 'p-tag-warning'}`}>
+            <span
+                className="p-tag"
+                style={{
+                    backgroundColor: isPagado ? '#22c55e' : '#f59e42',
+                    color: 'white',
+                    fontWeight: 'bold'
+                }}
+            >
                 {rowData.estatus}
-                {rowData.estatus === 'Pagado' && <i className="pi pi-check ml-1"></i>}
+                {isPagado && <i className="pi pi-check ml-1"></i>}
             </span>
         );
     };
@@ -719,26 +997,62 @@ const NominaModule = () => {
 
         return (
             <div className="flex gap-1">
-            <Button 
-                icon="pi pi-dollar" 
-                rounded 
-                severity="success"
-                tooltip="Procesar pago"
-                tooltipOptions={{ position: 'top' }}
-                onClick={() => abrirDialogoPago(rowData)}
-                disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
-                className="p-button-sm"
-            />
-            <Button 
-                icon="pi pi-eye" 
-                rounded 
-                severity="info"
-                tooltip="Ver recibo"
-                tooltipOptions={{ position: 'top' }}
-                onClick={handleVerRecibo}
-                className="p-button-sm"
-                disabled={!rowData.empleado_nombre}
-            />
+                {/* Botón para configurar préstamos */}
+                {rowData.prestamos_disponibles > 0 && (
+                    <Button 
+                        icon="pi pi-money-bill" 
+                        rounded 
+                        severity="warning"
+                        tooltip="Configurar descuento de préstamo"
+                        tooltipOptions={{ position: 'top' }}
+                        onClick={() => abrirDialogoPrestamo(rowData)}
+                        className="p-button-sm"
+                    />
+                )}
+                
+                {/* Botón para procesar pago */}
+                <Button 
+                    icon="pi pi-dollar" 
+                    rounded 
+                    severity="success"
+                    tooltip="Procesar pago"
+                    tooltipOptions={{ position: 'top' }}
+                    onClick={() => abrirDialogoPago(rowData)}
+                    disabled={rowData.estatus === 'Pagado' || !nominaGuardada}
+                    className="p-button-sm"
+                />
+                
+                {/* Botón para ver recibo */}
+                <Button 
+                    icon="pi pi-eye" 
+                    rounded 
+                    severity="info"
+                    tooltip="Ver recibo"
+                    tooltipOptions={{ position: 'top' }}
+                    onClick={handleVerRecibo}
+                    className="p-button-sm"
+                    disabled={!rowData.empleado_nombre}
+                />
+            </div>
+        );
+    };
+
+    const prestamoBodyTemplate = (rowData: any) => {
+        return (
+            <div className="flex flex-column gap-1">
+                <div className="text-sm text-gray-600">
+                    Disponible: {formatCurrency(rowData.prestamos_disponibles)}
+                </div>
+                <div className="font-semibold">
+                    Descontar: {formatCurrency(rowData.descuento_prestamo || 0)}
+                </div>
+                <Button 
+                    label="Configurar" 
+                    icon="pi pi-cog" 
+                    className="p-button-sm p-button-text"
+                    onClick={() => abrirDialogoPrestamo(rowData)}
+                    disabled={rowData.prestamos_disponibles <= 0}
+                />
             </div>
         );
     };
@@ -750,8 +1064,15 @@ const NominaModule = () => {
         </div>
     );
 
-    const fechaInicio = getStartOfWeek(new Date(fechaSeleccionada));
-    const fechaFin = getEndOfWeek(new Date(fechaSeleccionada));
+    const footerPrestamoDialog = (
+        <div>
+            <Button label="Cancelar" icon="pi pi-times" onClick={() => setShowPrestamoDialog(false)} className="p-button-text" />
+            <Button label="Guardar" icon="pi pi-check" onClick={guardarDescuentoPrestamo} autoFocus />
+        </div>
+    );
+
+    const fechaInicio = getStartOfFixedWeek(new Date(fechaSeleccionada), 6); // Sábado
+    const fechaFin = getEndOfFixedWeek(new Date(fechaSeleccionada), 6); // Viernes
 
     return (
         <div className="grid crud-demo">
@@ -853,19 +1174,88 @@ const NominaModule = () => {
                                     >
                                         <Column field="id" header="ID Viaje" />
                                         <Column field="operador_nombre" header="Operador" />
+                                        <Column field="cliente_nombre" header="Cliente" />
                                         <Column 
                                             field="fecha" 
                                             header="Fecha" 
                                             body={(row) => {
                                                 if (!row.fecha) return '-';
-                                                // Mostrar la fecha exactamente como viene, pero formateada a dd-mm-aaaa sin modificar la zona horaria
                                                 const [year, month, day] = row.fecha.split('T')[0].split('-');
                                                 return `${day}-${month}-${year}`;
                                             }} 
                                         />
                                         <Column field="folio" header="Folio" />
                                         <Column field="folio_bco" header="Folio BCO" />
-                                        <Column field="caphrsviajes" header="Monto Viaje" body={(row) => formatCurrency(row.caphrsviajes || 0)} />
+                                        <Column 
+                                            header="Monto Original" 
+                                            body={(row) => formatCurrency(row.caphrsviajes || 0)} 
+                                        />
+                                        <Column 
+                                            header="% Admin" 
+                                            body={(row) => {
+                                                // Buscar cliente para este viaje
+                                                const cliente = clientes.find(c => {
+                                                    const nombreCliente = c.empresa || c.nombre || '';
+                                                    const nombreViaje = row.cliente_nombre || '';
+                                                    const coincidePorNombre = nombreCliente.toUpperCase() === nombreViaje.toUpperCase();
+                                                    const coincidePorId = c.id === row.id_cliente;
+                                                    return coincidePorNombre || coincidePorId;
+                                                });
+                                                
+                                                if (cliente && cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+                                                    return <span className="text-red-600 font-semibold">{cliente.porcentaje_administrativo}%</span>;
+                                                }
+                                                return '0%';
+                                            }} 
+                                        />
+                                        <Column 
+                                            header="Monto Neto" 
+                                            body={(row) => {
+                                                const montoOriginal = row.caphrsviajes || 0;
+                                                // Calcular descuento para esta fila
+                                                const cliente = clientes.find(c => {
+                                                    const nombreCliente = c.empresa || c.nombre || '';
+                                                    const nombreViaje = row.cliente_nombre || '';
+                                                    const coincidePorNombre = nombreCliente.toUpperCase() === nombreViaje.toUpperCase();
+                                                    const coincidePorId = c.id === row.id_cliente;
+                                                    return coincidePorNombre || coincidePorId;
+                                                });
+                                                
+                                                let montoNeto = montoOriginal;
+                                                if (cliente && cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+                                                    const porcentaje = cliente.porcentaje_administrativo / 100;
+                                                    const descuento = montoOriginal * porcentaje;
+                                                    montoNeto = montoOriginal - descuento;
+                                                }
+                                                
+                                                return formatCurrency(montoNeto);
+                                            }} 
+                                        />
+                                        <Column 
+                                            header="Diferencia" 
+                                            body={(row) => {
+                                                const montoOriginal = row.caphrsviajes || 0;
+                                                // Calcular descuento para esta fila
+                                                const cliente = clientes.find(c => {
+                                                    const nombreCliente = c.empresa || c.nombre || '';
+                                                    const nombreViaje = row.cliente_nombre || '';
+                                                    const coincidePorNombre = nombreCliente.toUpperCase() === nombreViaje.toUpperCase();
+                                                    const coincidePorId = c.id === row.id_cliente;
+                                                    return coincidePorNombre || coincidePorId;
+                                                });
+                                                
+                                                let diferencia = 0;
+                                                if (cliente && cliente.porcentaje_administrativo && cliente.porcentaje_administrativo > 0) {
+                                                    const porcentaje = cliente.porcentaje_administrativo / 100;
+                                                    diferencia = montoOriginal * porcentaje;
+                                                }
+                                                
+                                                if (diferencia > 0) {
+                                                    return <span className="text-red-600">{formatCurrency(diferencia)}</span>;
+                                                }
+                                                return '-';
+                                            }} 
+                                        />
                                         <Column field="origen" header="Origen" />
                                         <Column field="destino" header="Destino" />
                                     </DataTable>
@@ -876,7 +1266,7 @@ const NominaModule = () => {
 
                     <Dialog 
                         visible={showPagoDialog} 
-                        style={{ width: '500px' }} 
+                        style={{ width: '600px' }} 
                         header="Procesar Pago" 
                         modal 
                         footer={footerPagoDialog}
@@ -888,10 +1278,44 @@ const NominaModule = () => {
                                     <label>Empleado</label>
                                     <InputText value={nominaSeleccionada.empleado_nombre} readOnly />
                                 </div>
-                                <div className="field">
-                                    <label>Monto a Pagar</label>
-                                    <InputText value={formatCurrency(nominaSeleccionada.pago_neto)} readOnly />
+                                
+                                <div className="grid">
+                                    <div className="col-6">
+                                        <div className="field">
+                                            <label>Pago Bruto</label>
+                                            <InputText 
+                                                value={formatCurrency(nominaSeleccionada.pago_bruto)} 
+                                                readOnly 
+                                                className="bg-blue-50"
+                                            />
+                                        </div>
+                                    </div>
+                                    <div className="col-6">
+                                        <div className="field">
+                                            <label>Pago Neto</label>
+                                            <InputText 
+                                                value={formatCurrency(nominaSeleccionada.pago_neto)} 
+                                                readOnly 
+                                                className={nominaSeleccionada.pago_neto > 0 ? 'bg-green-50' : 'bg-red-50'}
+                                            />
+                                        </div>
+                                    </div>
                                 </div>
+                                
+                                {nominaSeleccionada.prestamos > 0 && (
+                                    <div className="field">
+                                        <label className="text-red-600 font-semibold">Descuento por Préstamo</label>
+                                        <InputText 
+                                            value={formatCurrency(nominaSeleccionada.prestamos)} 
+                                            readOnly 
+                                            className="bg-red-50 font-bold"
+                                        />
+                                        <small className="text-gray-600">
+                                            Este monto se aplicará automáticamente a los préstamos pendientes
+                                        </small>
+                                    </div>
+                                )}
+                                
                                 <div className="field">
                                     <label>Método de Pago *</label>
                                     <Dropdown 
@@ -910,6 +1334,55 @@ const NominaModule = () => {
                                         placeholder="Número de referencia"
                                     />
                                 </div>
+                                
+                                {/* Mostrar préstamos que se van a afectar */}
+                                {nominaSeleccionada.prestamos > 0 && nominaSeleccionada.prestamos_detalle && (
+                                    <div className="field">
+                                        <label className="font-semibold">Préstamos que se afectarán:</label>
+                                        <div className="border-1 border-gray-300 border-round p-2 mt-1 max-h-8rem overflow-auto">
+                                            {nominaSeleccionada.prestamos_detalle
+                                                .filter((p: any) => p.estatus === 'Pendiente')
+                                                .map((prestamo: any, index: number) => (
+                                                    <div key={index} className="mb-2 p-2 border-bottom-1 border-gray-200">
+                                                        <div className="flex justify-content-between align-items-center">
+                                                            <div>
+                                                                <span className="font-medium">Préstamo #{prestamo.id}</span>
+                                                                <div className="text-sm text-gray-600">
+                                                                    {prestamo.descripcion || 'Sin descripción'}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-right">
+                                                                <div className="font-medium">
+                                                                    Saldo: {formatCurrency(prestamo.saldo_pendiente)}
+                                                                </div>
+                                                                <div className="text-sm text-gray-600">
+                                                                    Fecha: {prestamo.fecha_prestamo}
+                                                                </div>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                ))
+                                            }
+                                            {nominaSeleccionada.prestamos_detalle.filter((p: any) => p.estatus === 'Pendiente').length === 0 && (
+                                                <div className="text-center text-gray-500 py-2">
+                                                    No hay préstamos pendientes
+                                                </div>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {nominaSeleccionada.prestamos > 0 && (!nominaSeleccionada.prestamos_detalle || nominaSeleccionada.prestamos_detalle.length === 0) && (
+                                    <div className="field">
+                                        <div className="p-3 border-1 border-yellow-300 border-round bg-yellow-50">
+                                            <i className="pi pi-exclamation-triangle mr-2 text-yellow-600"></i>
+                                            <span className="text-yellow-700">
+                                                No se encontraron préstamos activos para aplicar el descuento. 
+                                                El monto se descontará del pago neto.
+                                            </span>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </Dialog>
@@ -919,6 +1392,80 @@ const NominaModule = () => {
                         onHide={() => setShowVistaPrevia(false)}
                         nomina={nominaParaVistaPrevia}
                     />
+
+                    <Dialog 
+                        visible={showPrestamoDialog} 
+                        style={{ width: '500px' }} 
+                        header="Configurar Descuento de Préstamo" 
+                        modal 
+                        footer={footerPrestamoDialog}
+                        onHide={() => setShowPrestamoDialog(false)}
+                    >
+                        {prestamoSeleccionado && (
+                            <div className="p-fluid">
+                                <div className="field">
+                                    <label>Empleado</label>
+                                    <InputText value={prestamoSeleccionado.empleado_nombre} readOnly />
+                                </div>
+                                
+                                <div className="field">
+                                    <label>Total Préstamos Disponibles</label>
+                                    <InputText 
+                                        value={formatCurrency(prestamoSeleccionado.prestamos_disponibles)} 
+                                        readOnly 
+                                    />
+                                </div>
+                                
+                                <div className="field-checkbox mb-3">
+                                    <Checkbox 
+                                        inputId="aplicarDescuento" 
+                                        checked={aplicarDescuento}
+                                        onChange={(e) => setAplicarDescuento(e.checked || false)}
+                                    />
+                                    <label htmlFor="aplicarDescuento" className="ml-2">
+                                        Aplicar descuento de préstamo
+                                    </label>
+                                </div>
+                                
+                                {aplicarDescuento && (
+                                    <div className="field">
+                                        <label>Monto a Descontar *</label>
+                                        <InputNumber 
+                                            value={montoDescuento}
+                                            onValueChange={(e) => setMontoDescuento(e.value || 0)}
+                                            mode="currency"
+                                            currency="MXN"
+                                            min={0}
+                                            max={prestamoSeleccionado.prestamos_disponibles}
+                                            className="w-full"
+                                        />
+                                        <small className="text-gray-600">
+                                            Máximo disponible: {formatCurrency(prestamoSeleccionado.prestamos_disponibles)}
+                                        </small>
+                                    </div>
+                                )}
+                                
+                                {prestamoSeleccionado.prestamos_detalle && prestamoSeleccionado.prestamos_detalle.length > 0 && (
+                                    <div className="field">
+                                        <label>Préstamos Activos</label>
+                                        <div className="border-1 border-gray-300 border-round p-2 max-h-10rem overflow-auto">
+                                            {prestamoSeleccionado.prestamos_detalle.map((prestamo: any, index: number) => (
+                                                <div key={index} className="mb-2 p-2 border-bottom-1 border-gray-200">
+                                                    <div className="flex justify-content-between">
+                                                        <span className="font-medium">Préstamo #{prestamo.id}</span>
+                                                        <span>{formatCurrency(prestamo.saldo_pendiente)}</span>
+                                                    </div>
+                                                    <div className="text-sm text-gray-600">
+                                                        Fecha: {prestamo.fecha_prestamo}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </Dialog>
                 </div>
             </div>
         </div>
