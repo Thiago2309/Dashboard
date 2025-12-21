@@ -510,7 +510,7 @@ export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion
     promises.push(Promise.resolve({ data: [] }));
   }
 
-  const results = await Promise.all(promises);
+  const results = await Promise.all(promises) as any[];
 
   const operadoresData = results[0].data || [];
   const materialesData = results[1].data || [];
@@ -519,28 +519,28 @@ export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion
 
   // 4. Crear mapas para búsqueda rápida
   const operadoresMap = new Map();
-  operadoresData.forEach(op => {
+  operadoresData.forEach((op: { id: any; nombre: any; }) => {
     if ('nombre' in op) {
       operadoresMap.set(op.id, op.nombre);
     }
   });
 
   const materialesMap = new Map();
-  materialesData.forEach(mat => {
+  materialesData.forEach((mat: { id: any; nombre: any; }) => {
     if ('nombre' in mat) {
       materialesMap.set(mat.id, mat.nombre);
     }
   });
 
   const m3Map = new Map();
-  m3Data.forEach(m3 => {
+  m3Data.forEach((m3: { id: any; metros_cubicos: any; }) => {
     if ('metros_cubicos' in m3) {
       m3Map.set(m3.id, m3.metros_cubicos);
     }
   });
 
   const preciosMap = new Map();
-  preciosData.forEach(precio => {
+  preciosData.forEach((precio: { id: any; precio_unidad: any; nombreorigen: any; nombredestino: any; }) => {
     if ('precio_unidad' in precio && 'nombreorigen' in precio && 'nombredestino' in precio) {
       preciosMap.set(precio.id, {
         precio_unidad: precio.precio_unidad,
