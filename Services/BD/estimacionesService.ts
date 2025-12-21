@@ -429,6 +429,157 @@ export const fetchOpcionesFiltros = async () => {
 //   }));
 // };
 
+// export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion): Promise<ViajeEstimacion[]> => {
+//   // 1. Obtener todos los viajes de una sola vez
+//   let query = supabase
+//     .from('viajes')
+//     .select(`
+//       id,
+//       fecha,
+//       folio,
+//       folio_bco,
+//       caphrsviajes,
+//       id_operador,
+//       id_material,
+//       id_m3,
+//       id_precio_origen_destino
+//     `);
+
+//   // Aplicar filtros
+//   if (filtros.fechaInicio) {
+//     query = query.gte('fecha', filtros.fechaInicio.toISOString().split('T')[0]);
+//   }
+//   if (filtros.fechaFin) {
+//     query = query.lte('fecha', filtros.fechaFin.toISOString().split('T')[0]);
+//   }
+//   if (filtros.clienteId) {
+//     query = query.eq('id_cliente', filtros.clienteId);
+//   }
+
+//   const { data: viajes, error } = await query.order('fecha', { ascending: false });
+
+//   if (error) {
+//     console.error('Error en fetchViajesConFiltros:', error);
+//     throw error;
+//   }
+
+//   if (!viajes || viajes.length === 0) {
+//     return [];
+//   }
+
+//   // 2. Obtener TODOS los IDs únicos de las relaciones (sin usar Set con spread)
+//   const operadoresIds = viajes.map(v => v.id_operador).filter(Boolean);
+//   const materialesIds = viajes.map(v => v.id_material).filter(Boolean);
+//   const m3Ids = viajes.map(v => v.id_m3).filter(Boolean);
+//   const precioIds = viajes.map(v => v.id_precio_origen_destino).filter(Boolean);
+
+//   // Función auxiliar para obtener valores únicos sin usar Set
+//   const getUniqueIds = (ids: number[]): number[] => {
+//     return ids.filter((id, index, array) => array.indexOf(id) === index);
+//   };
+
+//   const operadoresIdsUnicos = getUniqueIds(operadoresIds);
+//   const materialesIdsUnicos = getUniqueIds(materialesIds);
+//   const m3IdsUnicos = getUniqueIds(m3Ids);
+//   const precioIdsUnicos = getUniqueIds(precioIds);
+
+//   // 3. Hacer solo 4 consultas masivas en lugar de cientos individuales
+//   const promises = [];
+
+//   if (operadoresIdsUnicos.length > 0) {
+//     promises.push(supabase.from('operador').select('id, nombre').in('id', operadoresIdsUnicos));
+//   } else {
+//     promises.push(Promise.resolve({ data: [] }));
+//   }
+
+//   if (materialesIdsUnicos.length > 0) {
+//     promises.push(supabase.from('material').select('id, nombre').in('id', materialesIdsUnicos));
+//   } else {
+//     promises.push(Promise.resolve({ data: [] }));
+//   }
+
+//   if (m3IdsUnicos.length > 0) {
+//     promises.push(supabase.from('m3').select('id, metros_cubicos').in('id', m3IdsUnicos));
+//   } else {
+//     promises.push(Promise.resolve({ data: [] }));
+//   }
+
+//   if (precioIdsUnicos.length > 0) {
+//     promises.push(supabase.from('precio_origen_destino').select('id, precio_unidad, nombreorigen, nombredestino').in('id', precioIdsUnicos));
+//   } else {
+//     promises.push(Promise.resolve({ data: [] }));
+//   }
+
+//   const results = await Promise.all(promises);
+
+//   const operadoresData = results[0].data || [];
+//   const materialesData = results[1].data || [];
+//   const m3Data = results[2].data || [];
+//   const preciosData = results[3].data || [];
+
+//   // 4. Crear mapas para búsqueda rápida
+//   const operadoresMap = new Map();
+//   operadoresData.forEach(op => {
+//     if ('nombre' in op) {
+//       operadoresMap.set(op.id, op.nombre);
+//     }
+//   });
+
+//   const materialesMap = new Map();
+//   materialesData.forEach(mat => {
+//     if ('nombre' in mat) {
+//       materialesMap.set(mat.id, mat.nombre);
+//     }
+//   });
+
+//   const m3Map = new Map();
+//   m3Data.forEach(m3 => {
+//     if ('metros_cubicos' in m3) {
+//       m3Map.set(m3.id, m3.metros_cubicos);
+//     }
+//   });
+
+//   const preciosMap = new Map();
+//   preciosData.forEach(precio => {
+//     if ('precio_unidad' in precio && 'nombreorigen' in precio && 'nombredestino' in precio) {
+//       preciosMap.set(precio.id, {
+//         precio_unidad: precio.precio_unidad,
+//         nombreorigen: precio.nombreorigen,
+//         nombredestino: precio.nombredestino
+//       });
+//     }
+//   });
+
+//   // 5. Procesar todos los viajes usando los mapas (operación local súper rápida)
+//   return viajes.map((viaje, index) => {
+//     const operadorNombre = viaje.id_operador ? operadoresMap.get(viaje.id_operador) || 'No asignado' : 'No asignado';
+//     const materialNombre = viaje.id_material ? materialesMap.get(viaje.id_material) || 'No especificado' : 'No especificado';
+//     const m3Value = viaje.id_m3 ? m3Map.get(viaje.id_m3) || 0 : 0;
+    
+//     const precioInfo = viaje.id_precio_origen_destino ? preciosMap.get(viaje.id_precio_origen_destino) : null;
+//     const precioValue = precioInfo?.precio_unidad || 0;
+//     const origen = precioInfo?.nombreorigen || '';
+//     const destino = precioInfo?.nombredestino || '';
+
+//     const totalViaje = viaje.caphrsviajes || (m3Value * precioValue);
+
+//     return {
+//       id: viaje.id,
+//       fecha: viaje.fecha,
+//       folio: viaje.folio || '',
+//       folio_bco: viaje.folio_bco || '',
+//       material: materialNombre,
+//       m3: m3Value,
+//       precio: precioValue,
+//       operador: operadorNombre,
+//       total_viaje: totalViaje,
+//       numero_viaje: index + 1,
+//       origen: origen,
+//       destino: destino
+//     };
+//   });
+// };
+
 export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion): Promise<ViajeEstimacion[]> => {
   // 1. Obtener todos los viajes de una sola vez
   let query = supabase
@@ -467,15 +618,28 @@ export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion
     return [];
   }
 
-  // 2. Obtener TODOS los IDs únicos de las relaciones (sin usar Set con spread)
-  const operadoresIds = viajes.map(v => v.id_operador).filter(Boolean);
-  const materialesIds = viajes.map(v => v.id_material).filter(Boolean);
-  const m3Ids = viajes.map(v => v.id_m3).filter(Boolean);
-  const precioIds = viajes.map(v => v.id_precio_origen_destino).filter(Boolean);
+  // 2. Obtener TODOS los IDs únicos de las relaciones
+  const operadoresIds: number[] = [];
+  const materialesIds: number[] = [];
+  const m3Ids: number[] = [];
+  const precioIds: number[] = [];
 
-  // Función auxiliar para obtener valores únicos sin usar Set
+  viajes.forEach(v => {
+    if (v.id_operador) operadoresIds.push(v.id_operador);
+    if (v.id_material) materialesIds.push(v.id_material);
+    if (v.id_m3) m3Ids.push(v.id_m3);
+    if (v.id_precio_origen_destino) precioIds.push(v.id_precio_origen_destino);
+  });
+
+  // Función auxiliar para obtener IDs únicos
   const getUniqueIds = (ids: number[]): number[] => {
-    return ids.filter((id, index, array) => array.indexOf(id) === index);
+    const unique: number[] = [];
+    ids.forEach(id => {
+      if (!unique.includes(id)) {
+        unique.push(id);
+      }
+    });
+    return unique;
   };
 
   const operadoresIdsUnicos = getUniqueIds(operadoresIds);
@@ -483,74 +647,99 @@ export const fetchViajesConFiltrosOptimizado = async (filtros: FiltrosEstimacion
   const m3IdsUnicos = getUniqueIds(m3Ids);
   const precioIdsUnicos = getUniqueIds(precioIds);
 
-  // 3. Hacer solo 4 consultas masivas en lugar de cientos individuales
-  const promises = [];
+  // 3. Hacer consultas separadas en lugar de Promise.all
+  let operadoresData: any[] = [];
+  let materialesData: any[] = [];
+  let m3Data: any[] = [];
+  let preciosData: any[] = [];
 
-  if (operadoresIdsUnicos.length > 0) {
-    promises.push(supabase.from('operador').select('id, nombre').in('id', operadoresIdsUnicos));
-  } else {
-    promises.push(Promise.resolve({ data: [] }));
+  try {
+    // Consulta de operadores
+    if (operadoresIdsUnicos.length > 0) {
+      const { data, error } = await supabase
+        .from('operador')
+        .select('id, nombre')
+        .in('id', operadoresIdsUnicos);
+      
+      if (!error) {
+        operadoresData = data || [];
+      }
+    }
+
+    // Consulta de materiales
+    if (materialesIdsUnicos.length > 0) {
+      const { data, error } = await supabase
+        .from('material')
+        .select('id, nombre')
+        .in('id', materialesIdsUnicos);
+      
+      if (!error) {
+        materialesData = data || [];
+      }
+    }
+
+    // Consulta de m3
+    if (m3IdsUnicos.length > 0) {
+      const { data, error } = await supabase
+        .from('m3')
+        .select('id, metros_cubicos')
+        .in('id', m3IdsUnicos);
+      
+      if (!error) {
+        m3Data = data || [];
+      }
+    }
+
+    // Consulta de precios
+    if (precioIdsUnicos.length > 0) {
+      const { data, error } = await supabase
+        .from('precio_origen_destino')
+        .select('id, precio_unidad, nombreorigen, nombredestino')
+        .in('id', precioIdsUnicos);
+      
+      if (!error) {
+        preciosData = data || [];
+      }
+    }
+  } catch (error) {
+    console.error('Error obteniendo datos relacionados:', error);
   }
-
-  if (materialesIdsUnicos.length > 0) {
-    promises.push(supabase.from('material').select('id, nombre').in('id', materialesIdsUnicos));
-  } else {
-    promises.push(Promise.resolve({ data: [] }));
-  }
-
-  if (m3IdsUnicos.length > 0) {
-    promises.push(supabase.from('m3').select('id, metros_cubicos').in('id', m3IdsUnicos));
-  } else {
-    promises.push(Promise.resolve({ data: [] }));
-  }
-
-  if (precioIdsUnicos.length > 0) {
-    promises.push(supabase.from('precio_origen_destino').select('id, precio_unidad, nombreorigen, nombredestino').in('id', precioIdsUnicos));
-  } else {
-    promises.push(Promise.resolve({ data: [] }));
-  }
-
-  const results = await Promise.all(promises) as any[];
-
-  const operadoresData = results[0].data || [];
-  const materialesData = results[1].data || [];
-  const m3Data = results[2].data || [];
-  const preciosData = results[3].data || [];
 
   // 4. Crear mapas para búsqueda rápida
   const operadoresMap = new Map();
-  operadoresData.forEach((op: { id: any; nombre: any; }) => {
-    if ('nombre' in op) {
+  const materialesMap = new Map();
+  const m3Map = new Map();
+  const preciosMap = new Map();
+
+  operadoresData.forEach(op => {
+    if (op && op.id && op.nombre) {
       operadoresMap.set(op.id, op.nombre);
     }
   });
 
-  const materialesMap = new Map();
-  materialesData.forEach((mat: { id: any; nombre: any; }) => {
-    if ('nombre' in mat) {
+  materialesData.forEach(mat => {
+    if (mat && mat.id && mat.nombre) {
       materialesMap.set(mat.id, mat.nombre);
     }
   });
 
-  const m3Map = new Map();
-  m3Data.forEach((m3: { id: any; metros_cubicos: any; }) => {
-    if ('metros_cubicos' in m3) {
+  m3Data.forEach(m3 => {
+    if (m3 && m3.id && m3.metros_cubicos !== undefined) {
       m3Map.set(m3.id, m3.metros_cubicos);
     }
   });
 
-  const preciosMap = new Map();
-  preciosData.forEach((precio: { id: any; precio_unidad: any; nombreorigen: any; nombredestino: any; }) => {
-    if ('precio_unidad' in precio && 'nombreorigen' in precio && 'nombredestino' in precio) {
+  preciosData.forEach(precio => {
+    if (precio && precio.id && precio.precio_unidad !== undefined) {
       preciosMap.set(precio.id, {
         precio_unidad: precio.precio_unidad,
-        nombreorigen: precio.nombreorigen,
-        nombredestino: precio.nombredestino
+        nombreorigen: precio.nombreorigen || '',
+        nombredestino: precio.nombredestino || ''
       });
     }
   });
 
-  // 5. Procesar todos los viajes usando los mapas (operación local súper rápida)
+  // 5. Procesar todos los viajes usando los mapas
   return viajes.map((viaje, index) => {
     const operadorNombre = viaje.id_operador ? operadoresMap.get(viaje.id_operador) || 'No asignado' : 'No asignado';
     const materialNombre = viaje.id_material ? materialesMap.get(viaje.id_material) || 'No especificado' : 'No especificado';
